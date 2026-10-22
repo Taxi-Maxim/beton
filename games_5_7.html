@@ -1212,30 +1212,83 @@ function highLowStep(current,direction){
 }
 function highLowCorrect(current,next,direction){return next===current||(direction==='high'?next>current:next<current);}
 function buildHighlow(box){
-  let active=false,current=7,mult=1,curBet=0,rounds=0;
-  const labels={11:'J',12:'Q',13:'K',14:'A'};const cardName=n=>labels[n]||String(n);
+  const serverMode=Boolean(authSession);
+  let active=false,current=7,mult=1,curBet=0,rounds=0,roundId=null,busy=false,disposed=false,ready=!serverMode,blocked=false;
+  const labels={11:'J',12:'Q',13:'K',14:'A'},cardName=n=>labels[n]||String(n);
   box.innerHTML='<div style="text-align:center"><div class="k">ТЕКУЩАЯ КАРТА</div><div id="hlCard" class="card" style="margin:14px auto;width:100px;height:140px;align-items:center;justify-content:center;font-size:42px">7</div>'+
-    '<div style="font:800 18px JetBrains Mono">МНОЖИТЕЛЬ ×<b id="hlMult" style="color:var(--yellow)">1.00</b></div></div><div class="res"></div>'+
+    '<div style="font:800 18px JetBrains Mono">МНОЖИТЕЛЬ ×<b id="hlMult" style="color:var(--yellow)">1.00</b></div></div><div class="res" aria-live="polite"></div>'+
     '<div id="hlActions" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px"></div>';
   const card=box.querySelector('#hlCard'),multEl=box.querySelector('#hlMult'),res=box.querySelector('.res'),actions=box.querySelector('#hlActions');
   const higher=btn('ВЫШЕ','btn green'),lower=btn('НИЖЕ','btn red'),start=btn('НАЧАТЬ','btn green'),cash=btn('ЗАБРАТЬ','btn');
-  actions.append(start,higher,lower,cash);higher.disabled=lower.disabled=cash.disabled=true;
-  const bar=betBar(box,b=>curBet=b);box.appendChild(bar);
-  function show(n){card.textContent=cardName(n);card.style.color=n>=11?'var(--yellow)':'#111';}
-  function updateGuessButtons(){
+  [[start,'start'],[higher,'higher'],[lower,'lower'],[cash,'cashout']].forEach(([button,action])=>button.dataset.highlowAction=action);
+  actions.append(start,higher,lower,cash);
+  const bar=betBar(box,value=>curBet=value);box.appendChild(bar);
+  function controls(){
     const high=highLowStep(current,'high'),low=highLowStep(current,'low');
-    higher.querySelector('span').textContent='ВЫШЕ'+(high?' · ×'+high.growth.toFixed(2):' · —');
-    lower.querySelector('span').textContent='НИЖЕ'+(low?' · ×'+low.growth.toFixed(2):' · —');
-    higher.disabled=!active||!high;lower.disabled=!active||!low;
+    higher.querySelector('span').textContent='ВЫШЕ · ×'+high.growth.toFixed(2);
+    lower.querySelector('span').textContent='НИЖЕ · ×'+low.growth.toFixed(2);
+    higher.disabled=lower.disabled=busy||!ready||!active;
+    cash.disabled=busy||!ready||!active||rounds===0;start.disabled=busy||!ready||active||blocked;
+    lockBetBar(bar,busy||!ready||active||blocked);
   }
-  function finish(win){active=false;start.disabled=false;updateGuessButtons();cash.disabled=true;lockBetBar(bar,false);if(win){const w=moneyProduct(curBet,mult);changeBalance(w,mult>=4?'winBig':'win');recordWin(w);res.className='res on win';res.textContent='Цепочка закрыта: ×'+mult.toFixed(2)+' · +'+fmt(w)+' ₽';}else{Snd.lose();res.className='res on lose';res.textContent='Цепочка сорвалась на карте '+cardName(current)+'.';}}
-  function guess(dir){if(!active)return;const previous=current,step=highLowStep(previous,dir);if(!step)return;const next=irnd(2,14);current=next;show(current);
-    if(highLowCorrect(previous,next,dir)){
-      rounds++;mult=Math.min(20,mult*step.growth);multEl.textContent=mult.toFixed(2);cash.disabled=false;Snd.coin();res.className='res on push';res.textContent=next===previous?'Та же карта — ответ засчитан. Продолжай или забирай.':'Верно. Ещё ход или забирай.';updateGuessButtons();if(mult>=20)finish(true);
-    }else finish(false);
+  function render(round,outcome=null){
+    if(disposed)return;
+    if(Number.isInteger(round.current))current=round.current;
+    if(round.multiplier!==undefined)mult=Number(round.multiplier);
+    if(round.rounds!==undefined)rounds=round.rounds;
+    active=!outcome&&round.phase==='guess';
+    card.textContent=cardName(current);card.style.color=current>=11?'var(--yellow)':'#111';multEl.textContent=mult.toFixed(2);
+    if(outcome){
+      const won=money(outcome.won||0);res.className='res on '+(won?'win':'lose');
+      res.textContent=won?'Цепочка закрыта: ×'+mult.toFixed(2)+' · +'+fmt(outcome.payout)+' ₽':'Цепочка сорвалась на карте '+cardName(current)+'.';
+    }else if(rounds>0){res.className='res on push';res.textContent=round.tie?'Та же карта — ответ засчитан. Продолжай или забирай.':'Верно. Ещё ход или забирай.';}
+    else{res.className='res';res.textContent='';}
+    controls();
   }
-  start.onclick=()=>{if(active)return;if(curBet>S.balance){toast('Не хватает на ставку');return;}changeBalance(-curBet);recordWager(curBet);active=true;lockBetBar(bar,true);rounds=0;mult=1;current=irnd(2,14);show(current);multEl.textContent='1.00';res.className='res';start.disabled=true;cash.disabled=true;updateGuessButtons();};
-  higher.onclick=()=>guess('high');lower.onclick=()=>guess('low');cash.onclick=()=>{if(active&&rounds>0)finish(true);};show(current);
+  function finishGuest(win){
+    const payout=win?moneyProduct(curBet,mult):0n;
+    if(win){changeBalance(payout,mult>=4?'winBig':'win');recordWin(payout);}else Snd.lose();
+    render({current,multiplier:mult,rounds,phase:'over'},{won:payout,payout});
+  }
+  async function serverAction(action){
+    if(busy||!roundId||!active)return;busy=true;controls();
+    try{const response=await actServerGame(roundId,action);if(disposed)return;roundId=response.round_id;render(response.round,response.outcome);}
+    catch(error){if(!disposed){res.className='res on lose';res.textContent=error.message;}}
+    finally{busy=false;if(!disposed)controls();}
+  }
+  async function guess(direction){
+    if(busy||!active)return;
+    if(serverMode){await serverAction(direction==='high'?'higher':'lower');return;}
+    const previous=current,step=highLowStep(current,direction);current=irnd(2,14);
+    if(highLowCorrect(previous,current,direction)){
+      rounds++;mult=Math.min(20,mult*step.growth);Snd.coin();
+      if(mult>=20)finishGuest(true);else render({current,multiplier:mult,rounds,phase:'guess',tie:current===previous});
+    }else finishGuest(false);
+  }
+  start.onclick=async()=>{
+    if(busy||!ready||active||blocked)return;
+    if(serverMode){
+      busy=true;controls();
+      try{const response=await startServerGame('highlow',bar.getBet());if(disposed)return;roundId=response.round_id;render(response.round,response.outcome);}
+      catch(error){if(!disposed){res.className='res on lose';res.textContent=error.message;}}
+      finally{busy=false;if(!disposed)controls();}return;
+    }
+    if(curBet>S.balance){toast('Не хватает на ставку');return;}
+    changeBalance(-curBet);recordWager(curBet);render({current:irnd(2,14),multiplier:1,rounds:0,phase:'guess'});
+  };
+  higher.onclick=()=>guess('high');lower.onclick=()=>guess('low');
+  cash.onclick=()=>{if(busy||!active||rounds===0)return;if(serverMode)serverAction('cashout');else finishGuest(true);};
+  render({current,multiplier:mult,rounds,phase:'idle'});
+  if(serverMode){
+    apiRequest('/api/games/active').then(response=>{
+      if(disposed)return;
+      applyServerGameResult(response);
+      if(response.round_id&&response.game==='highlow'){roundId=response.round_id;render(response.round);}
+      else if(response.round_id){blocked=true;res.className='res on push';res.textContent='Заверши текущий раунд в игре '+GAMES[response.game].name;}
+    }).catch(error=>{if(!disposed){blocked=true;res.className='res on lose';res.textContent=error.message;}})
+      .finally(()=>{ready=true;if(!disposed)controls();});
+  }
+  onCleanup(()=>{disposed=true;});
 }
 
 /* ══════════ 9. НАПЁРСТКИ ══════════ */
@@ -1713,6 +1766,7 @@ function showView(name){
   Snd.click();
 }
 function buildServerGame(box,id){
+  if(id==='highlow'){buildHighlow(box);return;}
   let roundId=null,busy=false,selectedChoice='',kept=new Set(),crashTimer=null,cupsTable=null;
   const choices={
     roulette:[['red','КРАСНОЕ'],['black','ЧЁРНОЕ'],['green','НОЛЬ'],['even','ЧЁТ'],['odd','НЕЧЁТ'],['low','1–18'],['high','19–36']],
@@ -1757,7 +1811,6 @@ function buildServerGame(box,id){
   function renderRound(round){
     if(id==='blackjack'&&round.player){
       board.innerHTML='<div class="tableside"><div class="hand"><div class="hname">ДИЛЕР</div><div class="cards">'+round.dealer.map(card=>cardHTML(card,card===null)).join('')+'</div></div><div class="hand"><div class="hname">ТЫ</div><div class="cards">'+round.player.map(card=>cardHTML(card)).join('')+'</div></div></div>';
-    }else if(id==='highlow'&&round.current){const names={11:'J',12:'Q',13:'K',14:'A'};board.innerHTML='<div style="text-align:center"><div class="k">ТЕКУЩАЯ КАРТА</div><div class="card" style="margin:14px auto;width:100px;height:140px;align-items:center;justify-content:center;font-size:42px">'+(names[round.current]||round.current)+'</div><b>×'+Number(round.multiplier).toFixed(2)+'</b></div>';
     }else if(id==='cups'){
       if(round.phase!=='over'){
         cupsTable?.dispose();cupsTable=createCupTable(board,slot=>sendAction('pick',{cup:slot}));
@@ -1773,11 +1826,10 @@ function buildServerGame(box,id){
     }
     else if(id==='blackjack'&&round.phase==='play')board.dataset.phase='play';
     actions.innerHTML='';
-    const actionButtons=id==='blackjack'?[['hit','ЕЩЁ'],['stand','СТОП'],...(round.player?.length===2?[['double','ДАБЛ']]:[])]:id==='highlow'?[['higher','ВЫШЕ'],['lower','НИЖЕ'],...(round.rounds>0?[['cashout','ЗАБРАТЬ']]:[])]:id==='mines'&&round.opened?.length?[['cashout','ВЫВЕСТИ']]:id==='poker'?[['draw','ОБМЕНЯТЬ']]:id==='crash'?[['cashout','ВЫВЕСТИ']]:[];
+    const actionButtons=id==='blackjack'?[['hit','ЕЩЁ'],['stand','СТОП'],...(round.player?.length===2?[['double','ДАБЛ']]:[])]:id==='mines'&&round.opened?.length?[['cashout','ВЫВЕСТИ']]:id==='poker'?[['draw','ОБМЕНЯТЬ']]:id==='crash'?[['cashout','ВЫВЕСТИ']]:[];
     actionButtons.forEach(([action,label])=>{const button=btn(label,'btn sm');button.onclick=()=>sendAction(action,action==='draw'?{keep:[...kept]}:{});actions.appendChild(button);});
     if(id==='cups'){if(!roundId)hint.textContent='НАЖМИ «НАЧАТЬ РАУНД», ЧТОБЫ СЫГРАТЬ';}
     else if(id==='mines'&&!round.opened?.length)hint.textContent='Открывай плитки; расположение мин знает только сервер.';
-    else if(id==='highlow'&&round.tie)hint.textContent='Та же карта — ответ засчитан. Продолжай или забирай.';
     else hint.textContent='Раунд хранится на сервере. Переиграть один round ID нельзя.';
   }
   async function sendAction(action,data){
@@ -1812,7 +1864,7 @@ function openGame(id){
   clearGame();
   const builders={slots:buildSlots,blackjack:buildBlackjack,roulette:buildRoulette,
     crash:buildCrash,dice:buildDice,mines:buildMines,coinflip:buildCoinflip,highlow:buildHighlow,cups:buildCups,poker:buildPoker};
-  if(authSession)buildServerGame(body,id);else builders[id](body);
+  if(authSession&&id!=='highlow')buildServerGame(body,id);else builders[id](body);
   showView('game');
 }
 

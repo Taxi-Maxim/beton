@@ -1,0 +1,55 @@
+<!doctype html><meta charset="utf-8"><title>High/low regression check</title>
+<pre id="report">RUNNING</pre><iframe id="game" src="/" style="width:1000px;height:1100px"></iframe>
+<script>
+const frame=document.querySelector('#game'),report=document.querySelector('#report');
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+async function until(predicate,message){for(let i=0;i<300;i++){if(predicate())return;await delay(40);}throw new Error(message);}
+frame.onload=async()=>{
+  frame.onload=null;let w=frame.contentWindow;const checks=[];
+  const button=action=>w.document.querySelector('[data-highlow-action="'+action+'"]');
+  const result=()=>w.document.querySelector('#gameBody .res');
+  const card=()=>w.document.querySelector('#hlCard');
+  const multiplier=()=>w.document.querySelector('#hlMult');
+  const balance=()=>BigInt(w.eval('S.balance'));
+  const labels={11:'J',12:'Q',13:'K',14:'A'};
+  const signature=()=>JSON.stringify([...w.document.querySelectorAll('#hlActions>button')].map(b=>[b.dataset.highlowAction,b.className]));
+  async function rank(value,mode){if(mode==='guest')w.Math.random=()=>(value-2+.1)/13;else await w.apiRequest('/__highlow_test_rank',{method:'POST',body:JSON.stringify({rank:value})});}
+  async function open(){w.openGame('highlow');await until(()=>button('start')&&!button('start').disabled,'High/low screen not ready');}
+  async function begin(value,mode){await rank(value,mode);button('start').click();await until(()=>!button('higher').disabled,'Round did not start');assert(card().textContent===String(labels[value]||value),'Wrong initial card');}
+  try{
+    await until(()=>w.eval('authReady'),'Account initialization timed out');w.eval('maybeOpenStory=()=>{};S.sound=false;');
+    await delay(500);w.document.querySelector('#dialogOverlay').classList.remove('on');
+    await open();const guestSignature=signature();
+    for(const mode of ['guest','account']){
+      if(mode==='account'){
+        w.showView('lobby');const account=await w.apiRequest('/api/auth/register',{method:'POST',body:JSON.stringify({email:'highlow-browser@example.com',username:'highlow_browser',password:'test-password-123'})});
+        await w.activateAccount(account.user);await open();
+        assert(signature()===guestSignature,'Guest and account have different controls');
+        assert(!w.document.querySelector('#serverGameBoard'),'Account still uses generic renderer');
+      }
+      for(const value of [2,7,14])for(const action of ['higher','lower']){
+        const before=balance();await begin(value,mode);
+        button(action).click();
+        await until(()=>!button('cashout').disabled,'Equal card did not enable cashout');
+        assert(result().textContent.includes('Та же карта'),'Equal card was not shown as correct');
+        assert(card().textContent===String(labels[value]||value),'Tie changed the shown card');
+        const count=action==='higher'?15-value:value-1,growth=.96*13/count;
+        assert(multiplier().textContent===growth.toFixed(2),'Displayed multiplier does not match winning probability');
+        button('cashout').click();await until(()=>!button('start').disabled,'Cashout did not finish');
+        const payout=BigInt(Math.round(500*growth));
+        assert(balance()===before-500n+payout,'Cashout balance is incorrect');
+        checks.push(mode+': '+value+' '+action+' tie accepted');
+      }
+      const before=balance();await begin(7,mode);await rank(6,mode);button('higher').click();
+      await until(()=>!button('start').disabled,'Wrong guess did not finish');
+      assert(result().classList.contains('lose'),'Wrong direction did not lose');assert(balance()===before-500n,'Wrong direction payout');
+    }
+    await begin(7,'account');button('lower').click();await until(()=>!button('cashout').disabled,'Tie before recovery failed');
+    w.showView('lobby');w.openGame('highlow');await until(()=>!button('cashout').disabled,'Recovered successful tie cannot be cashed out');
+    assert(card().textContent==='7','Recovered card changed');button('cashout').click();await until(()=>!button('start').disabled,'Recovered cashout failed');
+    checks.push('Account recovery preserves successful tie');
+    report.textContent=JSON.stringify({ok:true,checks});
+  }catch(error){report.textContent=JSON.stringify({ok:false,error:error.stack,checks});}
+};
+</script>

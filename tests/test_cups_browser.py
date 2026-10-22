@@ -49,6 +49,21 @@ class CupsBrowserTests(unittest.TestCase):
         with patch("backend.game_engine.RNG.randrange", return_value=0):
             self.run_page("rewards_browser.html", prepare)
 
+    def test_highlow_account_and_guest_share_ui_and_accept_ties(self):
+        from unittest.mock import patch
+        from flask import request, jsonify
+        scenario = {"rank": 7}
+        def prepare(app, _database):
+            @app.post("/__highlow_test_rank")
+            def set_rank():
+                rank = request.get_json()["rank"]
+                if type(rank) is not int or not 2 <= rank <= 14:
+                    return jsonify(error="Invalid rank"), 400
+                scenario["rank"] = rank
+                return jsonify(ok=True)
+        with patch("backend.game_engine.RNG.randint", side_effect=lambda *_args: scenario["rank"]):
+            self.run_page("highlow_browser.html", prepare)
+
     def run_page(self, page, prepare=None):
         with tempfile.TemporaryDirectory() as directory:
             app = create_app({"TESTING": True, "DATABASE": str(Path(directory) / "test.sqlite3"),

@@ -1,0 +1,42 @@
+<!doctype html><meta charset="utf-8"><title>Account card games</title><pre id="report">RUNNING</pre><script src="/__account_browser_common.js"></script><script>
+runAccountCheck(async c=>{
+  const {w,d,checks}=c;
+  await c.setup('blackjack');let started=await c.begin();c.assertHands(started.round);
+  check(d.querySelector('[data-hand="dealer"] .back'),'Dealer hole card is visible');
+  const originalPlayer=d.querySelector('[data-hand="player"] .card');const stand=await c.move('stand');await c.finished();c.assertHands(stand.round);
+  check(d.querySelector('[data-hand="player"] .card')===originalPlayer,'Player cards were replaced at settlement');
+  check(d.querySelector('[data-hand="player"] .score').textContent==='15','Wrong player score');checks.push('Blackjack stand: hands and original card nodes stay in place');
+
+  await c.setup('blackjack');started=await c.begin();const firstTwo=[...d.querySelectorAll('[data-hand="player"] .card')];
+  let hit=await c.move('hit');check(!hit.outcome,'Hit below 21 ended the round');c.assertHands(hit.round);
+  check(firstTwo.every((node,index)=>node===d.querySelectorAll('[data-hand="player"] .card')[index]),'Hit replaced existing cards');check(c.action('double').disabled,'Double is enabled after a hit');
+  const ended=await c.move('stand');await c.finished();c.assertHands(ended.round);checks.push('Blackjack hit: existing cards remain and double is disabled');
+
+  await c.setup('blackjack_21','blackjack');await c.begin();hit=await c.move('hit');await c.finished();
+  check(hit.outcome?.result==='push','Hitting 21 did not resolve dealer automatically');c.assertHands(hit.round);checks.push('Blackjack 21 automatically settles with the original cards');
+
+  await c.setup('blackjack');const wager=BigInt(w.eval('S.stats.wagered'));await c.begin();const doubled=await c.move('double');await c.finished();c.assertHands(doubled.round);
+  check(BigInt(doubled.round.bet)===1000n&&BigInt(doubled.round.extra_bet)===500n,'Double stake is wrong');check(BigInt(w.eval('S.stats.wagered'))===wager+1000n,'Double wager stats wrong');check(d.querySelector('.betval b').textContent==='500','Double changed the next round stake');checks.push('Blackjack double charges one extra stake');
+
+  await c.setup('blackjack','blackjack',{balance:900});await c.begin();check(c.action('double').disabled,'Double enabled without enough funds');await c.move('stand');await c.finished();checks.push('Blackjack unaffordable double is disabled');
+
+  await c.setup('blackjack_natural','blackjack');const natural=await c.begin();await c.finished();check(natural.outcome.result==='blackjack','Natural blackjack did not finish');c.assertHands(natural.round);checks.push('Natural blackjack shows final hands without a second deal');
+
+  await c.setup('blackjack');await c.begin();hit=await c.move('hit');const restoreBalance=w.eval('S.balance');
+  await w.apiRequest('/api/state',{method:'POST',body:JSON.stringify({state:{bets:{blackjack:'1000'}}})});w.applyServerState((await w.apiRequest('/api/state')).state);
+  await c.reopen('blackjack');await pause(80);c.assertHands(hit.round);check(w.eval('S.balance')===restoreBalance,'Recovery charged a new stake');check(d.querySelector('.betval b').textContent==='500','Recovery shows preferred rather than actual stake');await c.move('stand');await c.finished();checks.push('Blackjack recovery preserves hands and actual stake');
+
+  await c.setup('blackjack');await c.begin();const keptNode=d.querySelector('[data-hand="player"] .card');
+  c.loseReply('/api/games/action','stand');const recovered=await c.move('stand');await c.finished();c.assertHands(recovered.round);
+  check(d.querySelector('[data-hand="player"] .card')===keptNode,'Lost response redealt player cards');checks.push('Lost blackjack response restores exact completed hands and payout');
+
+  await c.setup('poker');started=await c.begin();const initial=started.round.hand;
+  d.querySelector('[data-card="0"]').click();d.querySelector('[data-card="1"]').click();const draw=await c.move('draw');await c.finished();
+  check(JSON.stringify(c.latest('/api/games/action').body.data.keep)==='[0,1]','Wrong held cards sent');check(JSON.stringify(draw.round.hand.slice(0,2))===JSON.stringify(initial.slice(0,2)),'Poker replaced held cards');
+  check([...d.querySelectorAll('[data-card]')].every(card=>card.disabled),'Poker cards remain clickable after settlement');check(d.querySelectorAll('.poker-card').length===5,'Final poker hand disappeared');checks.push('Poker holds selected cards and locks final hand');
+
+  await c.setup('poker');started=await c.begin();await c.reopen('poker');await pause(80);
+  check([...d.querySelectorAll('[data-card] .cr')].map(card=>card.textContent).join(',')===started.round.hand.map(card=>card.r+card.s).join(','),'Poker recovery dealt new cards');
+  d.querySelectorAll('[data-card]').forEach(card=>card.click());await c.move('draw');await c.finished();checks.push('Poker recovery does not redeal or charge again');
+});
+</script>

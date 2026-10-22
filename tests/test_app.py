@@ -273,6 +273,74 @@ class AccountApiTests(unittest.TestCase):
                 self.assertEqual(cashed.json["outcome"]["payout"], expected_payout)
                 self.assertEqual(int(cashed.json["state"]["balance"]), before - 100 + expected_payout)
 
+    def test_start_request_id_replays_active_and_completed_round_without_charge(self):
+        self.register()
+        payload = {"game": "cups", "bet": 100, "request_id": "same-round-request-000001"}
+        first = self.client.post("/api/games/start", json=payload)
+        replay = self.client.post("/api/games/start", json=payload)
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.json["round_id"], first.json["round_id"])
+        self.assertEqual(replay.json["state"]["balance"], 4900)
+        self.assertEqual(replay.json["state"]["stats"]["plays"], 1)
+        self.assertEqual(self.client.post("/api/games/start", json={**payload, "bet": 200}).status_code, 409)
+        ended = self.client.post("/api/games/action", json={"round_id": first.json["round_id"], "action": "pick", "data": {"cup": 0}})
+        replay = self.client.post("/api/games/start", json=payload)
+        self.assertEqual(replay.status_code, 200)
+        self.assertIsNone(replay.json["round_id"])
+        self.assertEqual(replay.json["state"], ended.json["state"])
+        stored = self.client.get("/api/games/active").json["last_round"]
+        self.assertEqual(stored["id"], first.json["round_id"])
+        self.assertEqual(stored["outcome"], ended.json["outcome"])
+
+    def test_instant_request_replay_does_not_repeat_payout(self):
+        from unittest.mock import patch
+        self.register()
+        payload = {"game": "coinflip", "bet": 100, "choice": "heads", "request_id": "instant-round-request-000001"}
+        with patch("backend.game_engine.RNG.randrange", return_value=0):
+            first = self.client.post("/api/games/start", json=payload)
+            replay = self.client.post("/api/games/start", json=payload)
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.json["state"], first.json["state"])
+        self.assertEqual(replay.json["state"]["balance"], 5100)
+        self.assertEqual(replay.json["state"]["stats"]["plays"], 1)
+
+    def test_invalid_game_choices_never_charge_wallet(self):
+        self.register()
+        for game in ("roulette", "dice", "coinflip"):
+            for choice in (None, "wrong", []):
+                with self.subTest(game=game, choice=choice):
+                    result = self.client.post("/api/games/start", json={"game": game, "bet": 100, "choice": choice})
+                    self.assertEqual(result.status_code, 400)
+        state = self.client.get("/api/state").json["state"]
+        self.assertEqual(state["balance"], 5000)
+        self.assertEqual(state["stats"]["plays"], 0)
+
+    def test_large_blackjack_stakes_and_double_cost_are_exact_in_json(self):
+        import sqlite3
+        from contextlib import closing
+        from unittest.mock import patch
+        self.register()
+        amount = 10**100
+        with closing(sqlite3.connect(self.app.config["DATABASE"])) as database:
+            database.execute("UPDATE players SET wallet_balance_exact = ?", (str(amount * 3),))
+            database.commit()
+        deck = [{"r": rank, "s": suit} for rank, suit in reversed([
+            ("8", "h"), ("7", "s"), ("9", "d"), ("7", "c"), ("2", "h"), ("5", "c")])]
+        with patch("backend.game_engine.new_deck", return_value=deck):
+            started = self.client.post("/api/games/start", json={"game": "blackjack", "bet": str(amount)})
+        self.assertEqual(started.json["round"]["bet"], str(amount))
+        self.assertIsNone(started.json["round"]["dealer"][1])
+        self.assertNotIn("deck", started.json["round"])
+        doubled = self.client.post("/api/games/action", json={"round_id": started.json["round_id"], "action": "double"})
+        self.assertEqual(doubled.status_code, 200)
+        self.assertEqual(doubled.json["round"]["extra_bet"], str(amount))
+        self.assertEqual(doubled.json["round"]["bet"], str(amount * 2))
+        self.assertEqual(doubled.json["state"]["balance"], str(amount))
+        self.assertEqual(doubled.json["round"]["player"][:2], started.json["round"]["player"])
+        stored = self.client.get("/api/games/active").json["last_round"]
+        self.assertEqual(stored["round"], doubled.json["round"])
+        self.assertNotIn("deck", stored["round"])
+
     def test_cross_site_without_origin_is_rejected(self):
         self.register()
         response = self.client.post("/api/games/start", json={"game": "cups", "bet": 100},

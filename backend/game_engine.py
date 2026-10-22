@@ -49,7 +49,8 @@ def finish_round(payout=0, won=0, result="lose"):
     return {"active": False, "payout": int(round(payout)), "won": int(round(won)), "result": result}
 
 
-def public_round(round_state):
+def public_round(round_state, perks=None):
+    perks = perks or {}
     game = round_state["game"]
     phase = round_state.get("phase", "over")
     if game == "blackjack":
@@ -57,7 +58,7 @@ def public_round(round_state):
         return {"player": round_state["player"], "dealer": dealer, "phase": phase}
     if game == "mines":
         opened = round_state["opened"]
-        multiplier = mines_multiplier(round_state["mine_count"], len(opened)) if opened else 1
+        multiplier = mines_multiplier(round_state["mine_count"], len(opened), perks.get("protectedDistrict", False)) if opened else 1
         return {"mine_count": round_state["mine_count"], "opened": opened, "phase": phase, "multiplier": multiplier}
     if game == "highlow":
         return {key: round_state[key] for key in ("current", "multiplier", "rounds", "phase")}
@@ -126,6 +127,12 @@ def start_round(game, bet, choice=None, options=None, perks=None):
     options = options or {}
     perks = perks or {}
     round_state = {"id": secrets.token_urlsafe(18), "game": game, "bet": bet}
+    selections = {
+        "roulette": {"red", "black", "green", "even", "odd", "low", "high"},
+        "dice": {"more", "less", "seven", "pair"}, "coinflip": {"heads", "tails"},
+    }
+    if game in selections and (not isinstance(choice, str) or choice not in selections[game]):
+        raise ValueError("Invalid game selection")
 
     if game == "slots":
         symbols = RNG.choices(SLOT_SYMBOLS, weights=SLOT_WEIGHTS, k=3)
@@ -142,11 +149,14 @@ def start_round(game, bet, choice=None, options=None, perks=None):
         player, dealer = [deck.pop(), deck.pop()], [deck.pop(), deck.pop()]
         round_state.update({"deck": deck, "player": player, "dealer": dealer, "phase": "play"})
         if is_blackjack(player) and is_blackjack(dealer):
+            round_state["phase"] = "over"
             return round_state, {"player": player, "dealer": dealer, "phase": "over"}, finish_round(bet, 0, "push")
         if is_blackjack(player):
+            round_state["phase"] = "over"
             payout = money_product(bet, 2.65 if perks.get("bj_course") else 2.5)
             return round_state, {"player": player, "dealer": dealer, "phase": "over"}, finish_round(payout, payout, "blackjack")
         if is_blackjack(dealer):
+            round_state["phase"] = "over"
             return round_state, {"player": player, "dealer": dealer, "phase": "over"}, finish_round()
         return round_state, {"player": player, "dealer": [dealer[0], None], "phase": "play"}, None
 
@@ -235,6 +245,7 @@ def advance_round(round_state, action, data=None, perks=None):
 
     if game == "highlow" and round_state.get("phase") == "guess":
         if action == "cashout" and round_state["rounds"] > 0:
+            round_state["phase"] = "over"
             payout = money_product(bet, round_state["multiplier"])
             return round_state, {"current": round_state["current"], "multiplier": round_state["multiplier"], "phase": "over"}, finish_round(payout, payout, "win")
         if action not in ("higher", "lower"):
@@ -288,7 +299,9 @@ def advance_round(round_state, action, data=None, perks=None):
             if hand_value(player) > 21:
                 round_state["phase"] = "over"
                 return round_state, {"player": player, "dealer": dealer, "phase": "over"}, finish_round()
-            return round_state, {"player": player, "dealer": [dealer[0], None], "phase": "play"}, None
+            if hand_value(player) < 21:
+                return round_state, {"player": player, "dealer": [dealer[0], None], "phase": "play"}, None
+            action = "stand"
         if action == "double":
             if len(player) != 2:
                 raise ValueError("Double is allowed only after initial deal")
@@ -325,6 +338,8 @@ def advance_round(round_state, action, data=None, perks=None):
         return round_state, {"hand": round_state["hand"], "name": name, "multiplier": multiplier, "phase": "over"}, finish_round(payout, payout if multiplier else 0, "win" if multiplier else "lose")
 
     if game == "crash" and round_state.get("phase") == "active":
+        if action not in ("status", "cashout"):
+            raise ValueError("Invalid crash action")
         elapsed = max(0, time.time() - round_state["started_at"])
         current = math.exp(min(10, elapsed * round_state["growth_rate"]))
         if current >= round_state["crash_point"]:

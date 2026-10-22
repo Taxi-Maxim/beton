@@ -113,7 +113,8 @@ def create_app(test_config=None):
                 wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
                 purchases INTEGER NOT NULL DEFAULT 0 CHECK (purchases >= 0),
                 progress_state TEXT NOT NULL DEFAULT '{}',
-                active_round TEXT
+                active_round TEXT,
+                last_round TEXT
             );
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY,
@@ -145,6 +146,8 @@ def create_app(test_config=None):
             database.execute("ALTER TABLE players ADD COLUMN progress_state TEXT NOT NULL DEFAULT '{}'")
         if "active_round" not in player_columns:
             database.execute("ALTER TABLE players ADD COLUMN active_round TEXT")
+        if "last_round" not in player_columns:
+            database.execute("ALTER TABLE players ADD COLUMN last_round TEXT")
         for field in MONEY_FIELDS:
             # Identifiers are from a fixed internal tuple, never user input.
             if field + "_exact" not in player_columns:
@@ -174,14 +177,28 @@ def create_app(test_config=None):
     def serialize_outcome(outcome):
         return {**outcome, "payout": money_json(outcome["payout"]), "won": money_json(outcome["won"])} if outcome else None
 
-    def settle_wallet(database, player, balance, wager, won, active, play=False):
+    def round_json(state, public):
+        result = {**public, "bet": money_json(state["bet"])}
+        if "extra_bet" in result:
+            result["extra_bet"] = money_json(result["extra_bet"])
+        return result
+
+    def completed_round(state, public, outcome):
+        if outcome is None:
+            return None
+        return {"id": state["id"], "game": state["game"], "request_id": state.get("request_id"),
+                "request_fingerprint": state.get("request_fingerprint"),
+                "round": {**round_json(state, public), "phase": "over"}, "outcome": serialize_outcome(outcome)}
+
+    def settle_wallet(database, player, balance, wager, won, active, play=False, completed=None):
         database.execute(
             """UPDATE players SET wallet_balance_exact = ?, total_wagered_exact = ?,
                total_won_exact = ?, biggest_win_exact = ?, plays = plays + ?,
-               wins = wins + ?, active_round = ? WHERE id = ?""",
+               wins = wins + ?, active_round = ?, last_round = COALESCE(?, last_round) WHERE id = ?""",
             (str(balance), str(player["total_wagered"] + wager),
              str(player["total_won"] + won), str(max(player["biggest_win"], won)),
-             int(play), int(won > 0), json.dumps(active, separators=(",", ":")) if active else None, player["id"]),
+             int(play), int(won > 0), json.dumps(active, separators=(",", ":")) if active else None,
+             json.dumps(completed, separators=(",", ":")) if completed else None, player["id"]),
         )
 
     def player_json(player):
@@ -587,7 +604,8 @@ def create_app(test_config=None):
         return jsonify({
             "round_id": state["id"] if state else None,
             "game": state["game"] if state else None,
-            "round": game_engine.public_round(state) if state else None,
+            "last_round": json.loads(player["last_round"]) if player["last_round"] else None,
+            "round": round_json(state, game_engine.public_round(state, perks=get_perks(player))) if state else None,
             "user": player_json(player),
             "state": game_state_for(player),
         })
@@ -609,10 +627,28 @@ def create_app(test_config=None):
             return json_error("Invalid bet", 400)
         if not isinstance(game, str) or game not in GAME_IDS or bet < 50 or bet % 50:
             return json_error("Некорректная игра или ставка", 400)
+        request_id = payload.get("request_id")
+        if request_id is not None and (not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,80}", request_id)):
+            return json_error("Некорректный идентификатор запроса", 400)
+        fingerprint = hashlib.sha256(json.dumps(
+            {"game": game, "bet": str(bet), "choice": payload.get("choice"), "options": payload.get("options") if isinstance(payload.get("options"), dict) else {}},
+            sort_keys=True, separators=(",", ":"),
+        ).encode()).hexdigest()
         database = get_db()
         database.execute("BEGIN IMMEDIATE")
         player = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
-        if player["active_round"]:
+        active = json.loads(player["active_round"]) if player["active_round"] else None
+        previous = json.loads(player["last_round"]) if player["last_round"] else None
+        replay = active if active else previous
+        if request_id and replay and replay.get("request_id") == request_id:
+            database.rollback()
+            if replay.get("request_fingerprint") != fingerprint:
+                return json_error("Этот запрос уже использован для другой ставки", 409)
+            public = round_json(active, game_engine.public_round(active, perks=get_perks(player))) if active else previous["round"]
+            return jsonify({"user": player_json(player), "state": game_state_for(player),
+                            "round_id": active["id"] if active else None, "round": public,
+                            "outcome": None if active else previous["outcome"]})
+        if active:
             database.rollback()
             return json_error("Сначала заверши текущий раунд", 409)
         if bet > player["wallet_balance"]:
@@ -629,14 +665,16 @@ def create_app(test_config=None):
         except (ValueError, TypeError) as error:
             database.rollback()
             return json_error(str(error), 400)
+        round_state["request_id"] = request_id
+        round_state["request_fingerprint"] = fingerprint
         wallet_after_bet = player["wallet_balance"] - bet
         payout = outcome["payout"] if outcome else 0
         wallet_after = wallet_after_bet + payout
         won = outcome["won"] if outcome else 0
-        settle_wallet(database, player, wallet_after, bet, won, None if outcome else round_state, play=True)
+        settle_wallet(database, player, wallet_after, bet, won, None if outcome else round_state, play=True, completed=completed_round(round_state, public_round, outcome))
         database.commit()
         updated = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
-        return jsonify({"user": player_json(updated), "state": game_state_for(updated), "round_id": None if outcome else round_state["id"], "round": public_round, "outcome": serialize_outcome(outcome)})
+        return jsonify({"user": player_json(updated), "state": game_state_for(updated), "round_id": None if outcome else round_state["id"], "round": round_json(round_state, public_round), "outcome": serialize_outcome(outcome)})
 
     @app.post("/api/games/action")
     def game_action():
@@ -671,10 +709,10 @@ def create_app(test_config=None):
             return json_error("Недостаточно средств для удвоения", 400)
         wallet_after = player["wallet_balance"] - extra_bet + (outcome["payout"] if outcome else 0)
         won = outcome["won"] if outcome else 0
-        settle_wallet(database, player, wallet_after, extra_bet, won, None if outcome else new_round, play=False)
+        settle_wallet(database, player, wallet_after, extra_bet, won, None if outcome else new_round, play=False, completed=completed_round(new_round, public_round, outcome))
         database.commit()
         updated = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
-        return jsonify({"user": player_json(updated), "state": game_state_for(updated), "round_id": None if outcome else new_round["id"], "round": public_round, "outcome": serialize_outcome(outcome)})
+        return jsonify({"user": player_json(updated), "state": game_state_for(updated), "round_id": None if outcome else new_round["id"], "round": round_json(new_round, public_round), "outcome": serialize_outcome(outcome)})
 
     @app.post("/api/score/event")
     def reject_client_score():

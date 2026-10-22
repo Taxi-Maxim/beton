@@ -112,6 +112,38 @@ class ServerGameEngineTests(unittest.TestCase):
                  zip(["A", "2", "3", "4", "5"], ["s", "h", "d", "c", "s"])]
         self.assertEqual(poker_payout(wheel)[1], 5)
 
+    def test_blackjack_hit_to_21_finishes_without_replacing_cards(self):
+        player = [{"r": "8", "s": "h"}, {"r": "7", "s": "s"}]
+        dealer = [{"r": "9", "s": "d"}, {"r": "7", "s": "c"}]
+        state = {"game": "blackjack", "bet": 100, "player": player.copy(), "dealer": dealer.copy(),
+                 "deck": [{"r": "5", "s": "c"}, {"r": "6", "s": "h"}], "phase": "play"}
+        self.assertIsNone(public_round(state)["dealer"][1])
+        updated, public, outcome = advance_round(state, "hit")
+        self.assertEqual(updated["phase"], "over")
+        self.assertEqual(outcome["result"], "push")
+        self.assertEqual(public["player"][:2], player)
+        self.assertEqual(public["dealer"][:2], dealer)
+        self.assertNotIn(None, public["dealer"])
+
+    def test_finished_natural_blackjack_has_finished_state(self):
+        deck = [{"r": "7", "s": "c"}, {"r": "9", "s": "d"}, {"r": "K", "s": "h"}, {"r": "A", "s": "s"}]
+        with patch("backend.game_engine.new_deck", return_value=deck):
+            state, public, outcome = start_round("blackjack", 100)
+        self.assertEqual(state["phase"], "over")
+        self.assertEqual(public_round(state), public)
+        self.assertEqual(outcome["payout"], 250)
+
+    def test_invalid_instant_game_selections_are_rejected(self):
+        for game in ("roulette", "dice", "coinflip"):
+            for choice in (None, "unknown", [], {}):
+                with self.subTest(game=game, choice=choice), self.assertRaises(ValueError):
+                    start_round(game, 100, choice=choice)
+
+    def test_mines_recovery_preserves_protected_multiplier(self):
+        state = {"game": "mines", "bet": 100, "opened": [2], "mines": [0], "mine_count": 1, "phase": "active"}
+        public = public_round(state, {"protectedDistrict": True})
+        self.assertAlmostEqual(public["multiplier"], 25 / 24 * 1.02)
+
     def test_rejects_invalid_actions_and_selections(self):
         cups = {"game": "cups", "bet": 100, "ball": 1, "phase": "pick"}
         with self.assertRaises(ValueError):

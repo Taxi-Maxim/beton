@@ -606,8 +606,15 @@ async function apiRequest(path,options={}){
 function applyServerGameResult(result){
   authSession=result.user;stateReady=true;applyServerState(result.state);renderAccount();
 }
-async function startServerGame(game,bet,choice,options){
-  const result=await apiRequest('/api/games/start',{method:'POST',body:stringifyMoney({game,bet,choice,options})});
+function recoveredServerRound(response,game,expected={}){
+  if(response.round_id&&response.game===game)return{...response,outcome:null};
+  const last=response.last_round;
+  if(!response.round_id&&last?.game===game&&(!expected.roundId||last.id===expected.roundId)&&(!expected.requestId||last.request_id===expected.requestId))
+    return{...response,round_id:null,round:last.round,outcome:last.outcome};
+  return null;
+}
+async function startServerGame(game,bet,choice,options,requestId=crypto.randomUUID()){
+  const result=await apiRequest('/api/games/start',{method:'POST',body:stringifyMoney({game,bet,choice,options,request_id:requestId})});
   applyServerGameResult(result);loadLeaderboard();return result;
 }
 async function actServerGame(roundId,action,data={}){
@@ -783,6 +790,8 @@ function betBar(box,onChange){
   bar.querySelector('.apply-bet').onclick=()=>{Snd.click();setBet(input.value);};input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();setBet(input.value);}};input.onchange=()=>setBet(input.value);
   setBet(bet);
   bar.getBet=()=>bet;
+  bar.showRoundBet=value=>{bar.querySelector('b').textContent=fmt(value);input.value=money(value).toString();};
+  bar.restoreBet=()=>setBet(bet);
   return bar;
 }
 function lockBetBar(bar,locked){bar.querySelectorAll('button,input').forEach(b=>b.disabled=locked);}
@@ -851,7 +860,7 @@ function handVal(h){let v=0,a=0;h.forEach(c=>{if(c.r==='A'){a++;v+=11;}else if([
 const isBJ=h=>h.length===2&&handVal(h)===21;
 const isRed=c=>c.s==='♥'||c.s==='♦';
 function cardHTML(c,back){
-  if(back)return '<div class="card back anim"><span class="cr"></span><span class="cs"></span></div>';
+  if(back||!c)return '<div class="card back anim"><span class="cr"></span><span class="cs"></span></div>';
   return '<div class="card anim '+(isRed(c)?'red':'')+'"><span class="cr">'+c.r+c.s+'</span><span class="cs">'+c.s+'</span></div>';
 }
 function buildBlackjack(box){
@@ -1237,6 +1246,8 @@ function buildHighlow(box){
     if(round.multiplier!==undefined)mult=Number(round.multiplier);
     if(round.rounds!==undefined)rounds=round.rounds;
     active=!outcome&&round.phase==='guess';
+    if(serverMode&&active&&round.bet!==undefined)bar.showRoundBet(round.bet);
+    if(serverMode&&outcome)bar.restoreBet();
     card.textContent=cardName(current);card.style.color=current>=11?'var(--yellow)':'#111';multEl.textContent=mult.toFixed(2);
     if(outcome){
       const won=money(outcome.won||0);res.className='res on '+(won?'win':'lose');
@@ -1250,10 +1261,17 @@ function buildHighlow(box){
     if(win){changeBalance(payout,mult>=4?'winBig':'win');recordWin(payout);}else Snd.lose();
     render({current,multiplier:mult,rounds,phase:'over'},{won:payout,payout});
   }
+  async function restoreHighlow(expected={}){
+    const response=await apiRequest('/api/games/active');if(disposed)return;
+    applyServerGameResult(response);const recovered=recoveredServerRound(response,'highlow',expected);
+    if(recovered){roundId=recovered.round_id;render(recovered.round,recovered.outcome);}
+    else if(response.round_id){roundId=null;active=false;blocked=true;res.className='res on push';res.textContent='Заверши текущий раунд в игре '+GAMES[response.game].name;}
+    else{roundId=null;active=false;}
+  }
   async function serverAction(action){
-    if(busy||!roundId||!active)return;busy=true;controls();
+    if(busy||!roundId||!active)return;const requestedRoundId=roundId;busy=true;controls();
     try{const response=await actServerGame(roundId,action);if(disposed)return;roundId=response.round_id;render(response.round,response.outcome);}
-    catch(error){if(!disposed){res.className='res on lose';res.textContent=error.message;}}
+    catch(error){if(!disposed){res.className='res on lose';res.textContent=error.message;try{await restoreHighlow({roundId:requestedRoundId});}catch(_restoreError){blocked=true;}}}
     finally{busy=false;if(!disposed)controls();}
   }
   async function guess(direction){
@@ -1268,9 +1286,9 @@ function buildHighlow(box){
   start.onclick=async()=>{
     if(busy||!ready||active||blocked)return;
     if(serverMode){
-      busy=true;controls();
-      try{const response=await startServerGame('highlow',bar.getBet());if(disposed)return;roundId=response.round_id;render(response.round,response.outcome);}
-      catch(error){if(!disposed){res.className='res on lose';res.textContent=error.message;}}
+      const requestId=crypto.randomUUID();busy=true;controls();
+      try{const response=await startServerGame('highlow',bar.getBet(),undefined,undefined,requestId);if(disposed)return;roundId=response.round_id;render(response.round,response.outcome);}
+      catch(error){if(!disposed){res.className='res on lose';res.textContent=error.message;try{await restoreHighlow({requestId});}catch(_restoreError){blocked=true;}}}
       finally{busy=false;if(!disposed)controls();}return;
     }
     if(curBet>S.balance){toast('Не хватает на ставку');return;}
@@ -1280,12 +1298,7 @@ function buildHighlow(box){
   cash.onclick=()=>{if(busy||!active||rounds===0)return;if(serverMode)serverAction('cashout');else finishGuest(true);};
   render({current,multiplier:mult,rounds,phase:'idle'});
   if(serverMode){
-    apiRequest('/api/games/active').then(response=>{
-      if(disposed)return;
-      applyServerGameResult(response);
-      if(response.round_id&&response.game==='highlow'){roundId=response.round_id;render(response.round);}
-      else if(response.round_id){blocked=true;res.className='res on push';res.textContent='Заверши текущий раунд в игре '+GAMES[response.game].name;}
-    }).catch(error=>{if(!disposed){blocked=true;res.className='res on lose';res.textContent=error.message;}})
+    restoreHighlow().catch(error=>{if(!disposed){blocked=true;res.className='res on lose';res.textContent=error.message;}})
       .finally(()=>{ready=true;if(!disposed)controls();});
   }
   onCleanup(()=>{disposed=true;});
@@ -1767,91 +1780,143 @@ function showView(name){
 }
 function buildServerGame(box,id){
   if(id==='highlow'){buildHighlow(box);return;}
-  let roundId=null,busy=false,selectedChoice='',kept=new Set(),crashTimer=null,cupsTable=null;
+  let roundId=null,busy=false,ready=false,disposed=false,blocked=false,selectedChoice='',round={},outcome=null;
+  let kept=new Set(),crashTimer=null,cupsTable=null,cupRoundId=null,cupsReady=false;
   const choices={
     roulette:[['red','КРАСНОЕ'],['black','ЧЁРНОЕ'],['green','НОЛЬ'],['even','ЧЁТ'],['odd','НЕЧЁТ'],['low','1–18'],['high','19–36']],
-    dice:[['more','БОЛЬШЕ 7'],['less','МЕНЬШЕ 7'],['seven','РОВНО 7'],['pair','ПАРА']],
-    coinflip:[['heads','ОРЁЛ'],['tails','РЕШКА']]
+    dice:[['more','БОЛЬШЕ 7'],['less','МЕНЬШЕ 7'],['seven','РОВНО 7'],['pair','ПАРА']],coinflip:[['heads','ОРЁЛ'],['tails','РЕШКА']]
   };
-  box.innerHTML='<div class="res" id="serverGameResult" aria-live="polite"></div><div id="serverGameBoard"></div><div id="serverGameChoices" class="rbets" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"></div><div id="serverGameActions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"></div><div class="k" id="serverGameHint" style="margin-top:12px">Исход раунда проверяется сервером</div>';
-  const result=$('#serverGameResult'),board=$('#serverGameBoard'),choiceWrap=$('#serverGameChoices'),actions=$('#serverGameActions'),hint=$('#serverGameHint');
+  box.innerHTML='<div class="res" id="serverGameResult" aria-live="polite"></div><div id="serverGameBoard"></div><div id="serverGameChoices" class="rbets" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"></div><div id="serverGameActions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"></div><div class="k" id="serverGameHint" style="margin-top:12px"></div>';
+  const result=box.querySelector('#serverGameResult'),board=box.querySelector('#serverGameBoard'),choiceWrap=box.querySelector('#serverGameChoices'),actions=box.querySelector('#serverGameActions'),hint=box.querySelector('#serverGameHint');
   const bet=betBar(box,()=>{});box.appendChild(bet);
-  const start=btn('НАЧАТЬ РАУНД','btn green');start.style.cssText='width:100%;margin-top:14px';box.appendChild(start);
+  const start=btn('НАЧАТЬ РАУНД','btn green');start.dataset.gameStart=id;start.style.cssText='width:100%;margin-top:14px';box.appendChild(start);
   const mineCount=id==='mines'?el('label','k','МИНЫ <select id="serverMineCount" class="bet-input"><option>3</option><option selected>5</option><option>8</option><option>12</option></select>'):null;
-  if(mineCount)box.insertBefore(mineCount,bet);
+  const mineSelect=mineCount?.querySelector('select');if(mineCount)box.insertBefore(mineCount,bet);
   (choices[id]||[]).forEach(([value,label],index)=>{
     const button=el('button','rbet',label);button.type='button';button.dataset.choice=value;
-    button.onclick=()=>{if(busy)return;selectedChoice=value;[...choiceWrap.children].forEach(item=>item.classList.toggle('on',item===button));};
+    button.onclick=()=>{if(busy||roundId||!ready)return;selectedChoice=value;[...choiceWrap.children].forEach(item=>item.classList.toggle('on',item===button));};
     choiceWrap.appendChild(button);if(index===0){selectedChoice=value;button.classList.add('on');}
   });
-
-  function showOutcome(outcome,round){
-    roundId=null;clearInterval(crashTimer);crashTimer=null;start.disabled=false;lockBetBar(bet,false);lockButtons(choiceWrap,false);actions.innerHTML='';
-    const won=money(outcome?.won||0);
-    result.className='res on '+(won?'win':outcome?.result==='push'?'push':'lose');
-    if(round?.symbols)board.innerHTML='<div class="reels">'+round.symbols.map(symbol=>'<div class="reel"><span class="sym">'+symbol+'</span></div>').join('')+'</div>';
-    else if(round?.number!==undefined)board.textContent='Выпало '+round.number+' · '+round.color.toUpperCase();
-    else if(round?.dice)board.textContent='Кости: '+round.dice.join(' и ')+' · сумма '+round.total;
-    else if(round?.result)board.textContent=round.result==='heads'?'Выпал орёл':'Выпала решка';
-    else if(round?.player)board.innerHTML='<div class="tableside"><div class="hand"><div class="hname">ТЫ</div><div class="cards">'+round.player.map(card=>cardHTML(card)).join('')+'</div></div><div class="hand"><div class="hname">ДИЛЕР</div><div class="cards">'+round.dealer.map(card=>cardHTML(card,card===null)).join('')+'</div></div></div>';
-    else if(round?.hand)board.innerHTML='<div class="poker-hand">'+round.hand.map(card=>cardHTML(card)).join('')+'</div><p class="k">'+round.name+' · ×'+round.multiplier+'</p>';
-    else if(round?.mines)renderMineGrid(round);
-    else if(round?.opened)renderMineGrid(round);
-    else if(id==='cups'){cupsTable?.reveal(round.ball);}
-    else if(round?.multiplier!==undefined)board.textContent='Раунд завершён на ×'+Number(round.multiplier).toFixed(2);
-    result.textContent=won?'Выплата подтверждена сервером: +'+fmt(won)+' ₽':outcome?.result==='push'?'Ничья. Ставка возвращена.':'Раунд завершён без выплаты.';
-    hint.textContent='Баланс и рейтинг обновлены сервером.';
+  function controls(){
+    if(disposed)return;
+    const active=Boolean(roundId),locked=busy||!ready;
+    start.disabled=locked||active||blocked;lockBetBar(bet,locked||active||blocked);lockButtons(choiceWrap,locked||active||blocked);
+    if(mineSelect)mineSelect.disabled=locked||active||blocked;
+    actions.querySelectorAll('[data-action]').forEach(button=>{
+      const action=button.dataset.action;
+      button.disabled=locked||!active||(action==='cashout'&&id==='crash'&&Number(round.multiplier||1)<1.10)||
+        (action==='double'&&(round.player?.length!==2||money(round.bet??bet.getBet())>money(S.balance)));
+    });
+    board.querySelectorAll('[data-tile]').forEach(tile=>tile.disabled=locked||!active||round.opened?.includes(Number(tile.dataset.tile)));
+    board.querySelectorAll('[data-card]').forEach(card=>card.disabled=locked||!active);
+    cupsTable?.locked(locked||!active||!cupsReady);
   }
-  function renderMineGrid(round){
-    board.innerHTML='<div class="mines">'+Array.from({length:25},(_,index)=>{
-      const opened=round.opened?.includes(index),mine=round.mine===index||round.mines?.includes(index);
-      return'<div class="tile '+(opened?'open safe ':'')+(mine?'mine':'')+'">'+(mine?'💣':opened?'💎':'')+'</div>';
-    }).join('')+'</div>';
+  function updateCards(container,cards){
+    cards.forEach((card,index)=>{
+      const key=card?card.r+card.s:'back',existing=container.children[index];
+      if(existing?.dataset.cardKey===key)return;
+      const template=document.createElement('template');template.innerHTML=cardHTML(card,!card);
+      const node=template.content.firstElementChild;node.dataset.cardKey=key;
+      if(existing)existing.replaceWith(node);else container.appendChild(node);
+    });
+    while(container.children.length>cards.length)container.lastElementChild.remove();
   }
-  function renderRound(round){
-    if(id==='blackjack'&&round.player){
-      board.innerHTML='<div class="tableside"><div class="hand"><div class="hname">ДИЛЕР</div><div class="cards">'+round.dealer.map(card=>cardHTML(card,card===null)).join('')+'</div></div><div class="hand"><div class="hname">ТЫ</div><div class="cards">'+round.player.map(card=>cardHTML(card)).join('')+'</div></div></div>';
-    }else if(id==='cups'){
-      if(round.phase!=='over'){
-        cupsTable?.dispose();cupsTable=createCupTable(board,slot=>sendAction('pick',{cup:slot}));
-        if(roundId)cupsTable.play(round.preview_ball,round.swaps,phase=>{hint.textContent=phase==='preview'?'ЗАПОМНИ, ГДЕ ШАРИК':phase==='shuffle'?'СЛЕДИ ЗА СТАКАНОМ':'ГДЕ ШАРИК? ВЫБЕРИ СТАКАН';});
-      }
-    }else if(id==='mines'){renderMineGrid(round);board.querySelectorAll('.tile').forEach((tile,index)=>{if(!round.opened?.includes(index))tile.onclick=()=>sendAction('open',{tile:index});});
-    }else if(id==='poker'&&round.hand){board.innerHTML='<div class="poker-hand">'+round.hand.map((card,index)=>'<button class="card poker-card '+(kept.has(index)?'held':'')+'" type="button" data-card="'+index+'"><span class="cr">'+card.r+card.s+'</span><span class="cs">'+card.s+'</span></button>').join('')+'</div>';board.querySelectorAll('[data-card]').forEach(card=>card.onclick=()=>{const index=Number(card.dataset.card);kept.has(index)?kept.delete(index):kept.add(index);card.classList.toggle('held');});
-    }else if(id==='crash'){
-      const multiplier=Number(round.multiplier||1);board.innerHTML='<div class="mult">×'+multiplier.toFixed(2)+'</div>';
-      if(multiplier>=1.10){const cash=btn('ВЫВЕСТИ','btn green');cash.onclick=()=>sendAction('cashout');actions.appendChild(cash);}
-      clearInterval(crashTimer);crashTimer=null;
-      if(round.phase==='active')crashTimer=setInterval(()=>sendAction('status'),400);
+  function blackjackBoard(){
+    if(!board.querySelector('[data-hand="dealer"]'))board.innerHTML='<div class="tableside">'+
+      '<div class="hand" data-hand="dealer"><div class="hname">ДИЛЕР <span class="score"></span></div><div class="cards"></div></div>'+
+      '<div class="hand" data-hand="player"><div class="hname">ТЫ <span class="score"></span></div><div class="cards"></div></div></div>';
+    for(const name of ['dealer','player']){
+      const hand=board.querySelector('[data-hand="'+name+'"]'),cards=round[name]||[];
+      updateCards(hand.querySelector('.cards'),cards);
+      hand.querySelector('.score').textContent=cards.length?handVal(cards.filter(Boolean))+(cards.some(card=>!card)?' + ?':''):'—';
     }
-    else if(id==='blackjack'&&round.phase==='play')board.dataset.phase='play';
-    actions.innerHTML='';
-    const actionButtons=id==='blackjack'?[['hit','ЕЩЁ'],['stand','СТОП'],...(round.player?.length===2?[['double','ДАБЛ']]:[])]:id==='mines'&&round.opened?.length?[['cashout','ВЫВЕСТИ']]:id==='poker'?[['draw','ОБМЕНЯТЬ']]:id==='crash'?[['cashout','ВЫВЕСТИ']]:[];
-    actionButtons.forEach(([action,label])=>{const button=btn(label,'btn sm');button.onclick=()=>sendAction(action,action==='draw'?{keep:[...kept]}:{});actions.appendChild(button);});
-    if(id==='cups'){if(!roundId)hint.textContent='НАЖМИ «НАЧАТЬ РАУНД», ЧТОБЫ СЫГРАТЬ';}
-    else if(id==='mines'&&!round.opened?.length)hint.textContent='Открывай плитки; расположение мин знает только сервер.';
-    else hint.textContent='Раунд хранится на сервере. Переиграть один round ID нельзя.';
   }
-  async function sendAction(action,data){
-    if(busy||!roundId)return;busy=true;lockButtons(actions,true);if(id==='cups')cupsTable?.locked(true);
-    try{const response=await actServerGame(roundId,action,data);roundId=response.round_id;if(response.outcome)showOutcome(response.outcome,response.round);else renderRound(response.round);}
-    catch(error){result.className='res on lose';result.textContent=error.message;if(id==='cups')cupsTable?.locked(false);}
-    finally{busy=false;lockButtons(actions,false);}
+  function renderBoard(){
+    if(id==='blackjack'){blackjackBoard();return;}
+    if(id==='cups'){
+      if(!outcome&&(!cupsTable||cupRoundId!==roundId)){
+        cupsTable?.dispose();cupsReady=false;cupRoundId=roundId;
+        cupsTable=createCupTable(board,slot=>sendAction('pick',{cup:slot}));
+        if(roundId)cupsTable.play(round.preview_ball,round.swaps,phase=>{
+          if(disposed)return;cupsReady=phase==='guess';hint.textContent=phase==='preview'?'ЗАПОМНИ, ГДЕ ШАРИК':phase==='shuffle'?'СЛЕДИ ЗА СТАКАНОМ':'ГДЕ ШАРИК? ВЫБЕРИ СТАКАН';controls();
+        });
+      }
+      if(outcome)cupsTable?.reveal(round.ball);return;
+    }
+    if(id==='mines'){
+      if(Number.isInteger(round.mine_count)&&mineSelect){
+        if(![...mineSelect.options].some(option=>Number(option.value)===round.mine_count))mineSelect.add(new Option(String(round.mine_count),String(round.mine_count)));
+        mineSelect.value=String(round.mine_count);
+      }
+      board.innerHTML='<div class="mines">'+Array.from({length:25},(_,index)=>{
+        const opened=round.opened?.includes(index),mine=round.mine===index||round.mines?.includes(index);
+        return'<button type="button" aria-label="Плитка '+(index+1)+'" data-tile="'+index+'" class="tile '+(opened?'open safe ':'')+(mine?'mine':'')+'">'+(mine?'💣':opened?'💎':'')+'</button>';
+      }).join('')+'</div>'+(roundId?'<p class="k">Множитель ×'+Number(round.multiplier||1).toFixed(2)+'</p>':'');
+      board.querySelectorAll('[data-tile]').forEach(tile=>tile.onclick=()=>sendAction('open',{tile:Number(tile.dataset.tile)}));return;
+    }
+    if(id==='poker'){
+      if(!round.hand){board.textContent='Начни раунд, чтобы получить карты.';return;}
+      board.innerHTML='<div class="poker-hand">'+round.hand.map((card,index)=>'<button class="card poker-card '+(isRed(card)?'red ':'')+(kept.has(index)&&!outcome?'held':'')+'" type="button" data-card="'+index+'"><span class="cr">'+card.r+card.s+'</span><span class="cs">'+card.s+'</span></button>').join('')+'</div>'+(round.name?'<p class="k">'+round.name+' · ×'+round.multiplier+'</p>':'');
+      board.querySelectorAll('[data-card]').forEach(card=>card.onclick=()=>{if(busy||!roundId)return;const index=Number(card.dataset.card);kept.has(index)?kept.delete(index):kept.add(index);card.classList.toggle('held');});return;
+    }
+    if(id==='crash'){board.innerHTML='<div class="mult"'+(round.crashed?' style="color:var(--red)"':'')+'>×'+Number(round.multiplier||1).toFixed(2)+'</div>';return;}
+    if(id==='slots'){board.innerHTML='<div class="reels">'+(round.symbols||['—','—','—']).map(symbol=>'<div class="reel"><span class="sym">'+symbol+'</span></div>').join('')+'</div>';return;}
+    if(id==='roulette'){board.textContent=round.number===undefined?'Выбери ставку на рулетке.':'Выпало '+round.number+' · '+({red:'КРАСНОЕ',black:'ЧЁРНОЕ',green:'ЗЕРО'}[round.color]||round.color);return;}
+    if(id==='dice'){board.textContent=round.dice?'Кости: '+round.dice.join(' и ')+' · сумма '+round.total:'Выбери ставку на кости.';return;}
+    if(id==='coinflip')board.textContent=round.result?(round.result==='heads'?'Выпал орёл':'Выпала решка'):'Выбери сторону монеты.';
+  }
+  function renderActions(){
+    actions.innerHTML='';if(!roundId)return;
+    const entries=id==='blackjack'?[['hit','ЕЩЁ'],['stand','СТОП'],['double','ДАБЛ']]:
+      id==='mines'&&round.opened?.length?[['cashout','ВЫВЕСТИ']]:id==='poker'?[['draw','ОБМЕНЯТЬ']]:id==='crash'?[['cashout','ВЫВЕСТИ']]:[];
+    entries.forEach(([action,label])=>{const button=btn(label,'btn sm');button.dataset.action=action;button.onclick=()=>sendAction(action,action==='draw'?{keep:[...kept]}:{});actions.appendChild(button);});
+  }
+  function render(data,finished=null){
+    if(disposed)return;
+    outcome=finished;round={...round,...data};if(outcome){roundId=null;round.phase='over';}
+    if(!outcome){result.className='res';result.textContent='';}
+    renderBoard();renderActions();
+    if(roundId&&round.bet!==undefined)bet.showRoundBet(round.bet);
+    if(outcome){
+      clearTimeout(crashTimer);const won=money(outcome.won||0);
+      result.className='res on '+(won?'win':outcome.result==='push'?'push':'lose');
+      result.textContent=won?'Выигрыш: +'+fmt(outcome.payout)+' ₽':outcome.result==='push'?'Ничья. Ставка возвращена.':'Раунд завершён без выплаты.';
+      hint.textContent='Раунд завершён. Можно начать следующий.';bet.restoreBet();
+    }else if(id!=='cups')hint.textContent=id==='crash'&&roundId?'Вывод доступен начиная с ×1,10.':id==='poker'&&roundId?'Выбери карты, которые нужно оставить.':id==='mines'&&roundId?'Открывай плитки или забери выигрыш.':'';
+    controls();
+  }
+  function pollCrash(){
+    clearTimeout(crashTimer);if(disposed||!ready||id!=='crash'||!roundId)return;
+    crashTimer=setTimeout(()=>{if(busy)pollCrash();else sendAction('status');},300);
+  }
+  async function restore(expected={}){
+    const response=await apiRequest('/api/games/active');if(disposed)return;
+    applyServerGameResult(response);blocked=false;
+    const recovered=recoveredServerRound(response,id,expected);
+    if(recovered){roundId=recovered.round_id;render(recovered.round,recovered.outcome);}
+    else if(response.round_id){roundId=null;blocked=true;renderActions();hint.textContent='Заверши текущий раунд в игре '+GAMES[response.game].name;}
+    else{roundId=null;round.phase='idle';renderActions();controls();}
+  }
+  async function sendAction(action,data={}){
+    if(disposed||busy||!ready||!roundId)return;
+    const requestedRoundId=roundId;busy=true;controls();
+    try{const response=await actServerGame(roundId,action,data);if(disposed)return;roundId=response.round_id;render(response.round,response.outcome);}
+    catch(error){if(!disposed){result.className='res on lose';result.textContent=error.message;try{await restore({roundId:requestedRoundId});}catch(_restoreError){blocked=true;}}}
+    finally{busy=false;if(!disposed){controls();pollCrash();}}
   }
   start.onclick=async()=>{
-    if(busy||roundId)return;busy=true;start.disabled=true;lockBetBar(bet,true);result.className='res';result.textContent='Сервер раздаёт раунд…';
-    const options=id==='mines'?{mines:Number(box.querySelector('#serverMineCount').value)}:{};
-    try{const response=await startServerGame(id,bet.getBet(),selectedChoice,options);roundId=response.round_id;kept.clear();renderRound(response.round);if(response.outcome)showOutcome(response.outcome,response.round);else{lockBetBar(bet,true);start.disabled=true;}}
-    catch(error){result.className='res on lose';result.textContent=error.message;start.disabled=false;lockBetBar(bet,false);}
-    finally{busy=false;}
+    if(disposed||busy||!ready||roundId||blocked)return;
+    const requestId=crypto.randomUUID();busy=true;kept.clear();round={phase:'loading'};outcome=null;cupsTable?.dispose();cupsTable=null;cupRoundId=null;
+    result.className='res';result.textContent='';renderBoard();controls();
+    const options=id==='mines'?{mines:Number(mineSelect.value)}:{};
+    try{const response=await startServerGame(id,bet.getBet(),selectedChoice,options,requestId);if(disposed)return;roundId=response.round_id;render(response.round,response.outcome);}
+    catch(error){if(!disposed){result.className='res on lose';result.textContent=error.message;try{await restore({requestId});}catch(_restoreError){blocked=true;}}}
+    finally{busy=false;if(!disposed){controls();pollCrash();}}
   };
-  onCleanup(()=>{clearInterval(crashTimer);cupsTable?.dispose();crashTimer=null;});
-  apiRequest('/api/games/active').then(response=>{
-    if(!alive(box))return;
-    if(response.round_id&&response.game===id){roundId=response.round_id;applyServerGameResult(response);start.disabled=true;lockBetBar(bet,true);renderRound(response.round);}
-    else if(response.round_id){start.disabled=true;hint.textContent='Заверши текущий раунд в игре '+GAMES[response.game].name;}
-  }).catch(error=>{result.textContent=error.message;});
-  renderRound({phase:'idle',opened:[]});
+  render({phase:'idle'});
+  restore().catch(error=>{if(!disposed){blocked=true;result.className='res on lose';result.textContent=error.message;}})
+    .finally(()=>{ready=true;if(!disposed){controls();pollCrash();}});
+  onCleanup(()=>{disposed=true;clearTimeout(crashTimer);cupsTable?.dispose();});
 }
 function openGame(id){
   if(!authReady){toast('Проверяем профиль…');return;}

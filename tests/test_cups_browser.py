@@ -64,6 +64,77 @@ class CupsBrowserTests(unittest.TestCase):
         with patch("backend.game_engine.RNG.randint", side_effect=lambda *_args: scenario["rank"]):
             self.run_page("highlow_browser.html", prepare)
 
+    def test_account_card_games_keep_server_hands_and_stakes(self):
+        self.run_account_scenarios("account_cards_browser.html")
+
+    def test_account_games_actions_outcomes_and_cleanup(self):
+        self.run_account_scenarios("account_games_browser.html")
+
+    def run_account_scenarios(self, page):
+        import sqlite3
+        from contextlib import closing, ExitStack
+        from unittest.mock import patch
+        from flask import request, jsonify
+        from backend import game_engine
+        scenario = {"name": "blackjack"}
+        original_sample = game_engine.RNG.sample
+        original_randrange = game_engine.RNG.randrange
+        original_randint = game_engine.RNG.randint
+        original_random = game_engine.RNG.random
+        original_deck = game_engine.new_deck
+        def deck():
+            name = scenario["name"]
+            if name.startswith("blackjack"):
+                sequence = [("8", "♥"), ("7", "♠"), ("9", "♦"), ("7", "♣"), ("2", "♥"), ("5", "♣")]
+                if name == "blackjack_21":
+                    sequence[4] = ("6", "♥")
+                if name == "blackjack_natural":
+                    sequence = [("A", "♠"), ("K", "♥"), ("9", "♦"), ("7", "♣")]
+                return [{"r": rank, "s": suit} for rank, suit in reversed(sequence)]
+            if name == "poker":
+                return [{"r": rank, "s": suit} for rank, suit in reversed([
+                    ("J", "♠"), ("J", "♥"), ("4", "♣"), ("6", "♦"), ("8", "♠"),
+                    ("9", "♣"), ("2", "♦"), ("5", "♥")])]
+            return original_deck()
+        def sample(population, count):
+            if scenario["name"].startswith("mines") and len(population) == 25:
+                return list(range(count))
+            return original_sample(population, count)
+        def randrange(*args):
+            if scenario["name"] in ("roulette", "coinflip"):
+                return 0
+            return original_randrange(*args)
+        def randint(first, last):
+            if scenario["name"] == "dice":
+                return 4
+            if scenario["name"] == "highlow":
+                return 7
+            return original_randint(first, last)
+        def random():
+            if scenario["name"] == "crash":
+                return 0.9
+            if scenario["name"] == "crash_instant":
+                return 0.0
+            return original_random()
+        def prepare(app, database_path):
+            app.add_url_rule("/__account_browser_common.js", endpoint="account_browser_common", view_func=lambda: send_file(Path(__file__).with_name("account_browser_common.js")))
+            @app.post("/__account_test_scenario")
+            def set_scenario():
+                payload = request.get_json()
+                with closing(sqlite3.connect(database_path)) as database:
+                    if database.execute("SELECT active_round FROM players").fetchone()[0]:
+                        return jsonify(error="Previous round was not settled"), 409
+                    scenario["name"] = payload["name"]
+                    progress = {"storyFlags": {"protectedDistrict": True}} if payload["name"] == "mines_protected" else {}
+                    database.execute("UPDATE players SET wallet_balance_exact = ?, progress_state = ?", (str(payload.get("balance", 20000)), json.dumps(progress)))
+                    database.commit()
+                return jsonify(ok=True)
+        with ExitStack() as stack:
+            for name, replacement in (("new_deck", deck), ("RNG.sample", sample), ("RNG.randrange", randrange), ("RNG.randint", randint), ("RNG.random", random)):
+                stack.enter_context(patch("backend.game_engine." + name, side_effect=replacement))
+            stack.enter_context(patch("backend.game_engine.RNG.choices", return_value=["7", "7", "7"]))
+            self.run_page(page, prepare)
+
     def run_page(self, page, prepare=None):
         with tempfile.TemporaryDirectory() as directory:
             app = create_app({"TESTING": True, "DATABASE": str(Path(directory) / "test.sqlite3"),

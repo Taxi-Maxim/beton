@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>Account games</title><pre id="report">RUNNING</pre><script src="/__account_browser_common.js"></script><script>
+runAccountCheck(async c=>{
+  const {w,d,checks,requests}=c;
+  await c.setup('slots');let before=requests.filter(r=>r.path==='/api/games/start').length;c.start().click();c.start().click();await c.finished();
+  check(requests.filter(r=>r.path==='/api/games/start').length===before+1,'Double click started slots twice');check([...d.querySelectorAll('.sym')].map(n=>n.textContent).join(',')==='7,7,7','Slots differ from server');checks.push('Slots: one stake per click and server symbols');
+  await c.setup('slots');c.loseReply('/api/games/start');const recoveredSlots=await c.begin();const completedSlots=await c.finished();
+  const retry=await w.apiRequest('/api/games/start',{method:'POST',body:JSON.stringify(c.latest('/api/games/start').body)});
+  check(BigInt(retry.state.balance)===BigInt(completedSlots.state.balance)&&retry.state.stats.plays===completedSlots.state.stats.plays,'Retry charged a second slots stake');
+  check(recoveredSlots.outcome.payout===25000,'Lost slots outcome not recovered');checks.push('Lost instant result and retry do not charge or award twice');
+  await c.setup('roulette');d.querySelector('[data-choice="green"]').click();const roulette=await c.begin();await c.finished();check(roulette.round.number===0&&d.querySelector('#serverGameBoard').textContent.includes('0'),'Roulette result incorrect');checks.push('Roulette: selected bet and server result');
+  await c.setup('dice');d.querySelector('[data-choice="pair"]').click();const dice=await c.begin();await c.finished();check(dice.round.total===8&&d.querySelector('#serverGameBoard').textContent.includes('4 и 4'),'Dice result incorrect');checks.push('Dice: server faces and total');
+  await c.setup('coinflip');const coin=await c.begin();await c.finished();check(coin.round.result==='heads'&&d.querySelector('#serverGameBoard').textContent.includes('орёл'),'Coin result incorrect');checks.push('Coinflip: server result');
+
+  await c.setup('mines_protected','mines');d.querySelector('#serverMineCount').value='3';await c.begin();check(d.querySelector('#serverMineCount').disabled,'Mine count can change during round');
+  d.querySelector('[data-tile="3"]').click();await waitFor(()=>c.action('cashout')&&!c.action('cashout').disabled,'Safe tile did not enable cashout');
+  const multiplier=d.querySelector('#serverGameBoard p').textContent;await c.reopen('mines');await pause(100);
+  check(d.querySelector('#serverGameBoard p').textContent===multiplier,'Mine multiplier changed on recovery');check(d.querySelector('#serverMineCount').value==='3','Restored mine count differs');check(d.querySelector('[data-tile="3"]').disabled,'Opened tile can be opened again');await c.move('cashout');await c.finished();checks.push('Mines: count, protected multiplier and opened cells survive recovery');
+  await c.setup('mines');await c.begin();d.querySelector('[data-tile="0"]').click();await c.finished();check(d.querySelectorAll('.tile.mine').length===5,'Mines not revealed after loss');check([...d.querySelectorAll('[data-tile]')].every(tile=>tile.disabled),'Mines remain clickable after result');
+  await c.begin();check(!d.querySelector('.tile.mine'),'New mines round reveals previous layout');d.querySelector('[data-tile="5"]').click();await waitFor(()=>c.action('cashout')&&!c.action('cashout').disabled,'Safe tile failed');await c.move('cashout');await c.finished();checks.push('Mines: final grid locks and new round hides old layout');
+
+  await c.setup('highlow');const hlStart=d.querySelector('[data-highlow-action="start"]');hlStart.click();await waitFor(()=>!d.querySelector('[data-highlow-action="higher"]').disabled,'Highlow not started');d.querySelector('[data-highlow-action="higher"]').click();await waitFor(()=>!d.querySelector('[data-highlow-action="cashout"]').disabled,'Highlow tie failed');c.loseReply('/api/games/action','cashout');d.querySelector('[data-highlow-action="cashout"]').click();await waitFor(()=>!d.querySelector('[data-highlow-action="start"]').disabled,'Highlow cashout failed');checks.push('Highlow: tie and cashout use shared account screen');
+
+  await c.setup('cups');await c.begin();await waitFor(()=>d.querySelector('.cup-choice.peek'),'Cups preview missing');const marked=d.querySelector('.cup-choice.peek');await waitFor(()=>!marked.disabled,'Cups shuffle never ends');marked.click();await c.finished();check(marked.classList.contains('revealed'),'Cups reveal differs from preview');checks.push('Cups: tracked ball and one settlement');
+
+  await c.setup('crash');await c.begin();check(c.action('cashout').disabled,'Crash allows cashout below 1.10');await waitFor(()=>c.action('cashout')&&!c.action('cashout').disabled,'Crash cashout never becomes available');await c.move('cashout');await c.finished();checks.push('Crash: cashout unlocks only at minimum multiplier');
+  await c.setup('crash');c.heldStatus();await c.begin();await waitFor(()=>requests.some(r=>r.held),'No pending crash status');
+  w.showView('lobby');w.openGame('slots');await pause(1000);const statuses=()=>requests.filter(r=>r.path==='/api/games/action'&&r.body?.action==='status').length;const count=statuses();await pause(500);
+  check(statuses()===count,'Crash polling resumed after leaving');check(d.querySelectorAll('.reel').length===3,'Late crash response overwrote new game');check(c.start().disabled,'Another game can start before crash is settled');
+  await c.reopen('crash');await waitFor(()=>c.action('cashout')&&!c.action('cashout').disabled,'Crash recovery not usable');await c.move('cashout');await c.finished();checks.push('Crash: no background polls or stale view updates after leaving');
+  await c.setup('crash_instant','crash');await c.begin();await c.finished();check(d.querySelector('#serverGameResult').classList.contains('lose'),'Instant crash did not settle');checks.push('Crash: instant loss settles and unlocks next round');
+});
+</script>

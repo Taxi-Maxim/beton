@@ -1,0 +1,42 @@
+<!doctype html><meta charset="utf-8"><title>Wallet regression check</title>
+<pre id="report">RUNNING</pre><iframe id="game" src="/" style="width:1000px;height:1000px"></iframe>
+<script>
+const frame=document.querySelector('#game'),report=document.querySelector('#report');
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+async function until(predicate,message){for(let i=0;i<300;i++){if(predicate())return;await delay(40);}throw new Error(message);}
+frame.onload=async()=>{
+  frame.onload=null;let w=frame.contentWindow;const checks=[];
+  async function ready(){await until(()=>w.eval('authReady'),'Account initialization timed out');}
+  async function reload(){await new Promise(resolve=>{frame.onload=()=>{frame.onload=null;resolve();};w.location.reload();});w=frame.contentWindow;await ready();}
+  function exact(expected,label){
+    assert(w.eval('S.balance')===expected,label+': incorrect state balance');
+    assert(w.document.querySelector('#balNum').textContent.replace(/[^0-9]/g,'')===expected,label+': incorrect displayed balance');
+  }
+  try{
+    await ready();
+    const user=await w.apiRequest('/api/auth/register',{method:'POST',body:JSON.stringify({email:'wallet-browser@example.com',username:'wallet_browser',password:'test-password-123'})});
+    await w.activateAccount(user.user);
+    for(const amount of [999999999950n,1000000000050n,9007199254741000n,10n**100n,10n**5000n]){
+      await w.apiRequest('/__seed_test_wallet',{method:'POST',body:JSON.stringify({amount:amount.toString()})});
+      const state=await w.apiRequest('/api/state');w.applyServerState(state.state);
+      const result=await w.startServerGame('coinflip',amount.toString(),'heads');
+      const expected=(amount*2n).toString();exact(expected,'After payout');
+      await w.apiRequest('/api/auth/logout',{method:'POST',body:'{}'});
+      const login=await w.apiRequest('/api/auth/login',{method:'POST',body:JSON.stringify({email:'wallet-browser@example.com',password:'test-password-123'})});
+      await w.activateAccount(login.user);exact(expected,'After login');
+      await reload();exact(expected,'After reload');
+      assert(JSON.parse(w.localStorage.getItem(w.eval('LS'))).balance===expected,'Snapshot lost money precision');
+      checks.push('Account: '+amount.toString().length+' digits, payout, login and reload passed');
+    }
+    await w.apiRequest('/api/auth/logout',{method:'POST',body:'{}'});
+    w.eval("localStorage.setItem(LS,JSON.stringify({...freshState(),balance:'1.2345e+30',owned:['watch']}))");
+    await reload();exact((12345n*10n**26n).toString(),'Legacy scientific notation');
+    assert(w.eval('S.owned.includes("watch")'),'Legacy state progress was erased');
+    w.eval('changeBalance(50n);save();save();');const saved=w.eval('S.balance');
+    w.eval("localStorage.setItem(LS,'null')");await reload();exact(saved,'Backup recovery');
+    checks.push('Legacy scientific amounts and backup recovery passed');
+    report.textContent=JSON.stringify({ok:true,checks});
+  }catch(error){report.textContent=JSON.stringify({ok:false,error:error.stack,checks});}
+};
+</script>

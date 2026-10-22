@@ -7,11 +7,13 @@ new vm.Script(script);
 const helpers=script.slice(script.indexOf('const money='),script.indexOf('const rnd='));
 const state=script.slice(script.indexOf('function freshState()'),script.indexOf('function load()'));
 const context=vm.createContext({assert});
-vm.runInContext(helpers+state+`
+vm.runInContext("const LS='wallet-test';"+helpers+state+`
 const huge=10n**100n;
 assert.equal(moneyProduct(huge,2.7),huge*27n/10n);
 assert.equal(moneyProduct(50n,2.5),125n);
 assert.equal(normalizeState({balance:huge.toString()}).balance,huge.toString());
+assert.equal(normalizeState({balance:'1e+100'}).balance,huge.toString());
+assert.equal(normalizeState({balance:'1.2345e+30'}).balance,(12345n*10n**26n).toString());
 assert.equal(JSON.parse(stringifyMoney({balance:huge,bets:{cups:huge}})).bets.cups,huge.toString());
 assert.equal(fmt(huge).replace(/\\s/g,''),huge.toString());
 assert.equal(moneyAbs(-huge),huge);
@@ -36,3 +38,18 @@ for(let i=1;i<speeds.length;i++){
 }
 `,context);
 console.log('Cup shuffle starts at the original speed and progressively accelerates');
+
+const persistence=script.slice(script.indexOf('function load()'),script.indexOf('let firstStoryLaunch='));
+vm.runInContext(persistence+`
+const memory=new Map();
+const localStorage={getItem:key=>memory.get(key)??null,setItem:(key,value)=>memory.set(key,value)};
+let S=normalizeState({balance:'1e+100',owned:['watch']});
+persistState();
+S.balance=(money(S.balance)+50n).toString();persistState();
+assert.equal(load().balance,(10n**100n+50n).toString());
+localStorage.setItem(LS,'null');
+assert.equal(load().balance,(10n**100n).toString());
+assert.equal(load().owned[0],'watch');
+assert.throws(()=>normalizeState({balance:'Infinity'}));
+`,context);
+console.log('Scientific amounts and backup recovery preserve balances instead of resetting progress');

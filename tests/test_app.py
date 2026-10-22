@@ -224,6 +224,37 @@ class AccountApiTests(unittest.TestCase):
         self.assertEqual(sorted(statuses), [200, 409])
         self.assertEqual(self.client.get("/api/state").json["state"]["balance"], 5170)
 
+    def test_trillion_balance_survives_winnings_and_login(self):
+        import sqlite3
+        from contextlib import closing
+        from unittest.mock import patch
+        self.register()
+        for amount in (999_999_999_950, 1_000_000_000_050, 9_007_199_254_741_000):
+            with self.subTest(amount=amount):
+                with closing(sqlite3.connect(self.app.config["DATABASE"])) as database:
+                    database.execute("UPDATE players SET wallet_balance_exact = ?", (str(amount),))
+                    database.commit()
+                with patch("backend.game_engine.RNG.randrange", return_value=0):
+                    result = self.client.post("/api/games/start", json={"game": "coinflip", "bet": str(amount), "choice": "heads"})
+                self.assertEqual(result.status_code, 200)
+                self.assertEqual(int(result.json["state"]["balance"]), amount * 2)
+                self.client.post("/api/auth/logout", json={})
+                self.client.post("/api/auth/login", json={"email": "player@example.com", "password": "long-password-123"})
+                self.assertEqual(int(self.client.get("/api/state").json["state"]["balance"]), amount * 2)
+
+    def test_legacy_scientific_wallet_is_migrated_without_reset(self):
+        import sqlite3
+        from contextlib import closing
+        self.register()
+        with closing(sqlite3.connect(self.app.config["DATABASE"])) as database:
+            database.execute("UPDATE players SET wallet_balance_exact = '1e+100', total_won_exact = '1.2345e+30'")
+            database.commit()
+        restored = create_app(dict(self.app.config)).test_client()
+        restored.post("/api/auth/login", json={"email": "player@example.com", "password": "long-password-123"})
+        state = restored.get("/api/state").json["state"]
+        self.assertEqual(state["balance"], str(10**100))
+        self.assertEqual(state["stats"]["won"], str(12345 * 10**26))
+
     def test_cross_site_without_origin_is_rejected(self):
         self.register()
         response = self.client.post("/api/games/start", json={"game": "cups", "bet": 100},

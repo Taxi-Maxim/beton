@@ -480,7 +480,18 @@ footer{position:relative;z-index:2;border-top:3px solid #000;background:#101010;
 <script>
 /* ══════════ утилиты ══════════ */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const money=n=>BigInt(typeof n==='number'?Math.round(n):n||0);
+const money=value=>{
+  if(typeof value==='bigint')return value;
+  if(typeof value==='number'){if(!Number.isFinite(value))throw new RangeError('Некорректная денежная сумма');return BigInt(Math.round(value));}
+  if(value==null)return 0n;
+  const match=String(value).trim().match(/^([+-]?)(\d+)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/);
+  if(!match)throw new TypeError('Некорректный формат денежной суммы');
+  const fraction=match[3]||'',digits=BigInt(match[2]+fraction),power=BigInt(match[4]||0)-BigInt(fraction.length);
+  let result;
+  if(power>=0n)result=digits*10n**power;
+  else{const divisor=10n**(-power);result=(digits+divisor/2n)/divisor;}
+  return match[1]==='-'?-result:result;
+};
 const fmt=n=>money(n).toLocaleString('ru-RU');
 const moneyAbs=n=>money(n)<0n?-money(n):money(n);
 const stringifyMoney=value=>JSON.stringify(value,(_key,item)=>typeof item==='bigint'?item.toString():item);
@@ -502,19 +513,36 @@ const LS='beton_casino_story_v61';
 let authSession=null,authMode='signup',stateReady=false,authReady=false;
 let pendingScoreEvent={plays:0,won:0,biggest_win:0};
 let stateSaveTimer=null,stateSavePending=false,stateSaveInFlight=null;
-function freshState(){return{balance:5000,owned:[],sound:true,reputation:0,claimed:[],storySeen:[],storyFlags:{},lastRefill:0,stats:{wagered:0,won:0,biggest:0,plays:0,wins:0,purchases:0},bets:{}};}
+function freshState(){return{balance:'5000',owned:[],sound:true,reputation:0,claimed:[],storySeen:[],storyFlags:{},lastRefill:0,stats:{wagered:'0',won:'0',biggest:'0',plays:0,wins:0,purchases:0},bets:{}};}
 function normalizeState(d){const base=freshState();
-  if(d&&(typeof d.balance==='number'&&Number.isFinite(d.balance)||typeof d.balance==='string'&&/^\d+$/.test(d.balance)))return{...base,...d,
-    balance:(money(d.balance)<0n?0n:money(d.balance)).toString(),owned:Array.isArray(d.owned)?d.owned:[],
+  if(!d||typeof d!=='object'||Array.isArray(d))throw new TypeError('Некорректное сохранение');
+  if(d.balance==null)throw new TypeError('В сохранении отсутствует баланс');
+  const balance=money(d.balance);
+  const stats={...base.stats,...(d.stats||{})};
+  for(const key of ['wagered','won','biggest']){try{stats[key]=money(stats[key]).toString();}catch(error){stats[key]='0';}}
+  return{...base,...d,
+    balance:(balance<0n?0n:balance).toString(),owned:Array.isArray(d.owned)?d.owned:[],
     reputation:Number.isFinite(d.reputation)?d.reputation:0,claimed:Array.isArray(d.claimed)?d.claimed:[],
     storySeen:Array.isArray(d.storySeen)?d.storySeen:[],storyFlags:d.storyFlags&&typeof d.storyFlags==='object'?d.storyFlags:{},
     lastRefill:Number.isFinite(d.lastRefill)?d.lastRefill:0,
-    stats:{...base.stats,...(d.stats||{})},bets:{...(d.bets||{})}};
-  return base;}
-function load(){try{return normalizeState(JSON.parse(localStorage.getItem(LS)));}catch(e){return freshState();}}
+    stats,bets:{...(d.bets||{})}};
+}
+const LS_BACKUP=LS+'_backup';let localStateLoadError=false;
+function load(){
+  for(const key of [LS,LS_BACKUP]){try{const raw=localStorage.getItem(key);if(raw!=null)return normalizeState(JSON.parse(raw));}catch(error){localStateLoadError=true;}}
+  return freshState();
+}
+function persistState(){
+  const snapshot=stringifyMoney(normalizeState(S));
+  try{
+    const previous=localStorage.getItem(LS);
+    if(previous!=null){try{normalizeState(JSON.parse(previous));localStorage.setItem(LS_BACKUP,previous);}catch(error){}}
+    localStorage.setItem(LS,snapshot);localStateLoadError=false;
+  }catch(error){localStateLoadError=true;}
+}
 let firstStoryLaunch=false;try{firstStoryLaunch=!localStorage.getItem(LS);}catch(e){}
 let S=load();
-function save(){try{localStorage.setItem(LS,stringifyMoney(S));}catch(e){}queueStateSave();}
+function save(){persistState();queueStateSave();}
 
 let balShown=S.balance;
 function countUp(node,from,to,dur=450){
@@ -550,7 +578,7 @@ function floatMoney(delta){
 }
 function recordWager(b){if(authSession)return;S.stats.wagered=(money(S.stats.wagered)+money(b)).toString();S.stats.plays++;save();updateProgressUI();}
 function recordWin(w){if(authSession)return;S.stats.won=(money(S.stats.won)+money(w)).toString();S.stats.wins++;
-  const repGain=Math.max(1,Math.min(5,Math.floor(Math.log10(Math.max(10,Number(w))))-1));
+  const repGain=Math.max(1,Math.min(5,money(w).toString().length-2));
   S.reputation+=repGain;if(money(w)>money(S.stats.biggest))S.stats.biggest=w;save();updateProgressUI();}
 function renderStats(){$('#stWager').textContent=fmt(S.stats.wagered);
   $('#stWon').textContent=fmt(S.stats.won);
@@ -603,7 +631,7 @@ async function flushStateSave(){
 }
 function applyServerState(state){
   S=normalizeState(state);
-  try{localStorage.setItem(LS,stringifyMoney(S));}catch(e){}
+  persistState();
   refreshStateUI();
 }
 function refreshStateUI(){
@@ -1808,7 +1836,7 @@ function initReveal(){
 
 /* ══════════ инициализация ══════════ */
 function init(){
-  save();
+  if(!localStateLoadError)save();
   initReveal();
   buildTicker();
   renderLobby();
@@ -1879,6 +1907,7 @@ function init(){
 
   // контекст аудио при первом клике
   document.addEventListener('pointerdown',()=>{if(S.sound)Snd.ac();},{once:true});
+  if(localStateLoadError)toast('Основное сохранение повреждено или недоступно. Проверь сохранённый прогресс перед продолжением.');
   if(firstStoryLaunch)toast('Новая сюжетная версия: прогресс начат с нуля.');
   maybeOpenStory();
 }

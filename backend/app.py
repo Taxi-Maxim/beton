@@ -8,6 +8,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
+from decimal import Decimal
 
 from flask import Flask, g, jsonify, request, send_from_directory
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -34,6 +35,13 @@ def parse_money(value):
     if isinstance(value, str) and re.fullmatch(r"0|[1-9][0-9]*", value):
         return int(value)
     raise ValueError("Invalid amount")
+
+
+def canonical_stored_money(value):
+    amount = Decimal(str(value))
+    if not amount.is_finite() or amount < 0 or amount != amount.to_integral_value():
+        raise ValueError("Stored money must be a non-negative integer")
+    return format(amount, "f").split(".")[0].lstrip("0") or "0"
 
 
 def money_json(value):
@@ -94,7 +102,7 @@ def create_app(test_config=None):
                 plays INTEGER NOT NULL DEFAULT 0 CHECK (plays >= 0),
                 created_at INTEGER NOT NULL,
                 game_state TEXT,
-                wallet_balance INTEGER NOT NULL DEFAULT 5000 CHECK (wallet_balance >= 0 AND wallet_balance <= 9007199254740991),
+                wallet_balance INTEGER NOT NULL DEFAULT 5000 CHECK (wallet_balance >= 0),
                 total_wagered INTEGER NOT NULL DEFAULT 0 CHECK (total_wagered >= 0),
                 wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
                 purchases INTEGER NOT NULL DEFAULT 0 CHECK (purchases >= 0),
@@ -133,6 +141,14 @@ def create_app(test_config=None):
                 default = "5000" if field == "wallet_balance" else "0"
                 database.execute(f"ALTER TABLE players ADD COLUMN {field}_exact TEXT NOT NULL DEFAULT '{default}'")
                 database.execute(f"UPDATE players SET {field}_exact = CAST({field} AS TEXT)")
+            # Old SQLite REAL values may have been rendered in scientific notation.
+            # Canonicalize them once; never replace a large amount with a default.
+            legacy_amounts = database.execute(
+                f"SELECT id, {field}_exact AS amount FROM players WHERE {field}_exact GLOB '*[^0-9]*' OR {field}_exact = '' OR (length({field}_exact) > 1 AND substr({field}_exact, 1, 1) = '0')"
+            ).fetchall()
+            for legacy in legacy_amounts:
+                database.execute(f"UPDATE players SET {field}_exact = ? WHERE id = ?",
+                                 (canonical_stored_money(legacy["amount"]), legacy["id"]))
         database.commit()
 
     app.teardown_appcontext(close_db)
@@ -284,7 +300,7 @@ def create_app(test_config=None):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") or request.path in {"/", "/games_5_7.html"}:
             response.headers["Cache-Control"] = "no-store"
         return response
 

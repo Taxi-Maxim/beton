@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>Rewards regression check</title>
+<pre id="report">RUNNING</pre><iframe id="game" src="/" style="width:1000px;height:1000px"></iframe>
+<script>
+const frame=document.querySelector('#game'),report=document.querySelector('#report');
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+async function until(predicate,message){for(let i=0;i<300;i++){if(predicate())return;await delay(40);}throw new Error(message);}
+frame.onload=async()=>{
+  frame.onload=null;let w=frame.contentWindow;const checks=[];
+  async function ready(){await until(()=>w.eval('authReady'),'Account initialization timed out');w.eval('maybeOpenStory=()=>{};S.sound=false;');}
+  async function reload(){await new Promise(resolve=>{frame.onload=()=>{frame.onload=null;resolve();};w.location.reload();});w=frame.contentWindow;await ready();}
+  try{
+    await ready();
+    const account=await w.apiRequest('/api/auth/register',{method:'POST',body:JSON.stringify({email:'rewards-browser@example.com',username:'rewards_browser',password:'test-password-123'})});
+    await w.activateAccount(account.user);
+    for(let i=0;i<5;i++)await w.startServerGame('coinflip','50','heads');
+    w.showView('quests');const before=BigInt(w.eval('S.balance'));
+    let claim=w.document.querySelector('[data-quest-id="first5"] button');assert(claim&&!claim.disabled,'Completed quest cannot be claimed');claim.click();
+    await until(()=>w.eval('S.claimed.includes("first5")'),'Quest claim not acknowledged');
+    assert(BigInt(w.eval('S.balance'))===before+3000n,'Quest did not credit 3000');
+    await reload();assert(BigInt(w.eval('S.balance'))===before+3000n,'Quest payout lost on reload');
+    claim=w.document.querySelector('[data-quest-id="first5"] button');assert(claim.disabled,'Quest can be claimed twice');checks.push('Quest button credits once and survives reload');
+    for(const item of ['pen','boots','jacket'])await w.buy(w.eval("ITEMS.find(item=>item.id==='"+item+"')"));
+    assert(w.eval('S.stats.purchases')===3,'Purchases are not saved on server');
+    w.document.querySelector('[data-quest-id="collector"] button').click();
+    await until(()=>w.eval('S.claimed.includes("collector")'),'Collector quest not acknowledged');
+    assert(BigInt(w.eval('S.balance'))===before+3000n-770n+10000n,'Collector reward or shop price is wrong');
+    await reload();assert(w.eval('S.stats.purchases')===3,'Purchases lost after reload');checks.push('Shop purchases unlock collector reward');
+    await w.apiRequest('/__seed_test_wallet',{method:'POST',body:JSON.stringify({amount:'499'})});
+    w.applyServerState((await w.apiRequest('/api/state')).state);
+    w.prompt=()=>null;w.document.querySelector('#refill').click();
+    await until(()=>!w.eval('refillBusy'),'Cancelled prompt did not unlock reserve');
+    assert(w.eval('S.balance')==='499','Cancelled prompt changed balance');
+    w.prompt=question=>{const match=question.match(/(\d+)\s*×\s*(\d+)/);assert(match,'Equation not shown');return String(Number(match[1])*Number(match[2]));};
+    w.document.querySelector('#refill').click();
+    await until(()=>w.eval('S.balance')==='5499','Correct equation did not credit 5000');
+    assert(w.eval('S.lastRefill')>0,'Reserve timestamp not stored');
+    await reload();assert(w.eval('S.balance')==='5499','Reserve payout lost on reload');checks.push('Equation reserve credits 5000 and survives reload');
+    await w.apiRequest('/__seed_test_wallet',{method:'POST',body:JSON.stringify({amount:'0'})});
+    w.applyServerState((await w.apiRequest('/api/state')).state);
+    assert(w.document.querySelector('#refill').disabled,'Reserve cooldown did not disable button');
+    checks.push('Cancel does not claim reward; cooldown blocks repeated refill');
+    report.textContent=JSON.stringify({ok:true,checks});
+  }catch(error){report.textContent=JSON.stringify({ok:false,error:error.stack,checks});}
+};
+</script>

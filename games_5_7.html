@@ -563,9 +563,10 @@ function changeBalance(delta,snd){
   if(snd&&Snd[snd])Snd[snd]();
   updateRefillButton();
 }
+let refillBusy=false;const pendingQuestClaims=new Set(),pendingPurchases=new Set();
 const REFILL_COOLDOWN=10*60*1000;
 function refillWait(){const cooldown=S.storyFlags.careful?9*60*1000:REFILL_COOLDOWN;return Math.max(0,cooldown-(Date.now()-S.lastRefill));}
-function updateRefillButton(){const b=$('#refill');if(!b)return;const wait=refillWait();
+function updateRefillButton(){const b=$('#refill');if(!b)return;if(refillBusy){b.disabled=true;return;}const wait=refillWait();
   if(S.balance>500){b.disabled=true;b.querySelector('span').textContent='РЕЗЕРВ ПРИ ≤ 500 ₽';}
   else if(wait>0){b.disabled=true;b.querySelector('span').textContent='РЕЗЕРВ ЧЕРЕЗ '+Math.ceil(wait/60000)+' МИН';}
   else{b.disabled=false;b.querySelector('span').textContent='ПОЛУЧИТЬ РЕЗЕРВ +5 000 ₽';}}
@@ -1403,7 +1404,7 @@ function renderShop(){
         (item.skill?'<span class="skill-badge">⚡ НАВЫК · '+item.skill+'</span>':'')+
         '<p class="desc">'+item.desc+'</p><span class="price">'+fmt(shopPrice(item))+' ₽</span>';
       const b=owned?btn('КУПЛЕНО','btn ghost sm'):btn('КУПИТЬ','btn sm');
-      if(!owned)b.onclick=()=>buy(item);
+      b.disabled=owned||pendingPurchases.has(item.id);if(!owned)b.onclick=()=>buy(item);
       card.appendChild(b);wrap.appendChild(card);observeReveal(card);
     });
     sec.appendChild(wrap);grid.appendChild(sec);
@@ -1411,8 +1412,14 @@ function renderShop(){
   });
   updateShopCnt();
 }
-function buy(item){
+async function buy(item){
   const price=shopPrice(item);if(S.balance<price){Snd.lose();toast('Не хватает '+fmt(money(price)-money(S.balance))+' ₽');return;}
+  if(authSession){
+    if(pendingPurchases.has(item.id))return;pendingPurchases.add(item.id);renderShop();
+    try{const response=await apiRequest('/api/shop/buy',{method:'POST',body:stringifyMoney({item_id:item.id})});applyServerGameResult(response);Snd.winBig();toast(item.ico+' '+item.name+' — твой.');}
+    catch(error){toast(error.message);}
+    finally{pendingPurchases.delete(item.id);renderShop();}return;
+  }
   changeBalance(-price,'lose');
   S.owned.push(item.id);S.stats.purchases++;S.reputation+=3*(item.tier+1);save();
   Snd.winBig();toast(item.ico+' '+item.name+' — твой.');
@@ -1679,9 +1686,16 @@ function renderStoryArchive(){const grid=$('#episodeGrid');if(!grid)return;grid.
     if(unlocked){const b=btn(seen?'ПОВТОРИТЬ ДИАЛОГ':'НАЧАТЬ ЭПИЗОД',seen?'btn ghost sm':'btn green sm');b.onclick=()=>openDialogue(scene,seen);card.appendChild(b);}grid.appendChild(card);observeReveal(card);});updateStoryCnt();}
 function updateStoryCnt(){const n=$('#storyCnt');if(n)n.textContent=S.storySeen.length+'/'+SCENES.length;}
 function renderQuests(){const grid=$('#questGrid');if(!grid)return;grid.innerHTML='';QUESTS.forEach(q=>{const value=Number(money(q.get())>BigInt(q.target)?q.target:q.get()),done=value>=q.target,claimed=S.claimed.includes(q.id),reward=Math.round(q.reward*(S.storyFlags.investedHall?1.05:1)*(hasSkill('profit_share')?1.05:1));const card=el('div','quest reveal'+(done?' done':'')+(claimed?' claimed':''));
-    card.innerHTML='<h3>'+q.name+'</h3><p>'+q.desc+'</p><div class="qprog"><i style="width:'+(value/q.target*100)+'%"></i></div><div class="qmeta"><span>'+fmt(value)+' / '+fmt(q.target)+'</span><span>+'+fmt(reward)+' ₽</span></div>';
-    const b=btn(claimed?'ПОЛУЧЕНО':done?'ЗАБРАТЬ':'В ПРОЦЕССЕ',claimed?'btn ghost sm':done?'btn green sm':'btn ghost sm');b.disabled=!done||claimed;
-    b.onclick=()=>{if(!done||claimed)return;S.claimed.push(q.id);S.reputation+=10;save();changeBalance(reward,'winBig');toast('Задание выполнено: +'+fmt(reward)+' ₽');renderQuests();renderStory();};card.appendChild(b);grid.appendChild(card);observeReveal(card);
+    card.dataset.questId=q.id;card.innerHTML='<h3>'+q.name+'</h3><p>'+q.desc+'</p><div class="qprog"><i style="width:'+(value/q.target*100)+'%"></i></div><div class="qmeta"><span>'+fmt(value)+' / '+fmt(q.target)+'</span><span>+'+fmt(reward)+' ₽</span></div>';
+    const b=btn(claimed?'ПОЛУЧЕНО':done?'ЗАБРАТЬ':'В ПРОЦЕССЕ',claimed?'btn ghost sm':done?'btn green sm':'btn ghost sm');b.disabled=!done||claimed||pendingQuestClaims.has(q.id);
+    b.onclick=async()=>{if(!done||claimed||pendingQuestClaims.has(q.id))return;
+      if(authSession){
+        pendingQuestClaims.add(q.id);b.disabled=true;
+        try{const response=await apiRequest('/api/quests/claim',{method:'POST',body:stringifyMoney({quest_id:q.id})});applyServerGameResult(response);Snd.winBig();toast('Задание выполнено: +'+fmt(response.reward)+' ₽');}
+        catch(error){toast(error.message);}
+        finally{pendingQuestClaims.delete(q.id);renderQuests();}return;
+      }
+      S.claimed.push(q.id);S.reputation+=10;save();changeBalance(reward,'winBig');toast('Задание выполнено: +'+fmt(reward)+' ₽');renderQuests();renderStory();};card.appendChild(b);grid.appendChild(card);observeReveal(card);
   });updateQuestCnt();}
 function updateQuestCnt(){const node=$('#questCnt');if(node)node.textContent=S.claimed.length+'/'+QUESTS.length;}
 function updateProgressUI(){renderStats();renderStory();updateQuestCnt();updateStoryCnt();maybeOpenStory();}
@@ -1864,9 +1878,22 @@ function init(){
   $('#backBtn').onclick=()=>showView('lobby');
 
   // аварийный резерв: только при почти пустом балансе, с проверкой и перерывом
-  $('#refill').onclick=()=>{
+  $('#refill').onclick=async()=>{
+    if(refillBusy)return;
     if(S.balance>500){toast('Резерв доступен только при балансе 500 ₽ или меньше');updateRefillButton();return;}
     const wait=refillWait();if(wait>0){toast('Следующий резерв через '+Math.ceil(wait/60000)+' мин.');updateRefillButton();return;}
+    if(authSession){
+      refillBusy=true;updateRefillButton();
+      try{
+        const challenge=await apiRequest('/api/refill/challenge',{method:'POST',body:'{}'});
+        const answer=prompt('Проверка для получения резерва: сколько будет '+challenge.a+' × '+challenge.b+'?');
+        if(answer===null)return;
+        const trimmed=answer.trim();if(!/^\d+$/.test(trimmed)){toast('Введи целое число');return;}
+        const response=await apiRequest('/api/refill/claim',{method:'POST',body:stringifyMoney({challenge_id:challenge.challenge_id,answer:Number(trimmed)})});
+        applyServerGameResult(response);Snd.win();toast('Резерв начислен: +'+fmt(response.reward)+' ₽');
+      }catch(error){toast(error.message);}
+      finally{refillBusy=false;updateRefillButton();}return;
+    }
     const a=irnd(4,12),b=irnd(3,9),answer=prompt('Проверка для получения резерва: сколько будет '+a+' × '+b+'?');
     if(answer===null)return;
     if(Number(answer.trim())!==a*b){Snd.lose();toast('Неверный ответ. Резерв не выдан.');return;}

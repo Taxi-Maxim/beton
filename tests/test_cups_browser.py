@@ -34,6 +34,21 @@ class CupsBrowserTests(unittest.TestCase):
         with patch("backend.game_engine.RNG.randrange", return_value=0):
             self.run_page("balance_browser.html", prepare)
 
+    def test_reward_buttons_credit_and_persist_account_wallet(self):
+        import sqlite3
+        from contextlib import closing
+        from unittest.mock import patch
+        from flask import request, jsonify
+        def prepare(app, database_path):
+            @app.post("/__seed_test_wallet")
+            def seed_wallet():
+                with closing(sqlite3.connect(database_path)) as database:
+                    database.execute("UPDATE players SET wallet_balance_exact = ?", (str(request.get_json()["amount"]),))
+                    database.commit()
+                return jsonify(ok=True)
+        with patch("backend.game_engine.RNG.randrange", return_value=0):
+            self.run_page("rewards_browser.html", prepare)
+
     def run_page(self, page, prepare=None):
         with tempfile.TemporaryDirectory() as directory:
             app = create_app({"TESTING": True, "DATABASE": str(Path(directory) / "test.sqlite3"),

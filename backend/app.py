@@ -15,6 +15,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend import game_engine
+from backend.catalog import SHOP_ITEMS
 
 
 # Monetary values are arbitrary precision. HTTP request sizes remain capped below.
@@ -54,6 +55,11 @@ def player_row(cursor, values):
         if field + "_exact" in row:
             row[field] = int(row[field + "_exact"])
     return row
+QUEST_REWARDS = {
+    "first5": ("plays", 5, 3000), "wins3": ("wins", 3, 5000),
+    "wager25": ("total_wagered", 25000, 7500), "collector": ("purchases", 3, 10000),
+    "bigwin": ("biggest_win", 15000, 15000), "veteran": ("plays", 50, 50000),
+}
 GAME_IDS = {"slots", "blackjack", "roulette", "crash", "dice", "mines", "coinflip", "highlow", "cups", "poker"}
 def create_app(test_config=None):
     app = Flask(__name__, static_folder=None)
@@ -113,6 +119,10 @@ def create_app(test_config=None):
                 token_hash TEXT PRIMARY KEY,
                 player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
                 expires_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS refill_challenges (
+                player_id INTEGER PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+                challenge_id TEXT NOT NULL, answer INTEGER NOT NULL, expires_at INTEGER NOT NULL
             );
             CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
             """
@@ -420,6 +430,153 @@ def create_app(test_config=None):
         database.execute("UPDATE players SET game_state = ? WHERE id = ?", (preferences, player["id"]))
         database.commit()
         return jsonify({"ok": True})
+
+    def reward_progress(player):
+        progress = json.loads(player["progress_state"] or "{}")
+        return progress if isinstance(progress, dict) else {}
+
+    def refill_available(player, progress, now):
+        cooldown = 9 * 60 * 1000 if progress.get("storyFlags", {}).get("careful") else 10 * 60 * 1000
+        if player["active_round"]:
+            return json_error("Сначала заверши текущий раунд", 409)
+        if player["wallet_balance"] > 500:
+            return json_error("Резерв доступен при балансе не выше 500 ₽", 409)
+        if now - progress.get("lastRefill", 0) < cooldown:
+            return json_error("Резерв ещё восстанавливается", 429)
+        return None
+
+    def credit_reward(database, player, progress, reward):
+        database.execute(
+            "UPDATE players SET wallet_balance_exact = ?, progress_state = ? WHERE id = ?",
+            (str(player["wallet_balance"] + reward), json.dumps(progress, separators=(",", ":")), player["id"]),
+        )
+        database.commit()
+        updated = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
+        return jsonify({"user": player_json(updated), "state": game_state_for(updated), "reward": reward})
+
+    @app.post("/api/shop/buy")
+    def buy_item():
+        if not origin_is_allowed():
+            return json_error("Источник запроса не разрешен", 403)
+        player, error = require_player()
+        if error:
+            return error
+        payload = request_json()
+        item = payload.get("item_id") if payload else None
+        if not isinstance(item, str) or item not in SHOP_ITEMS:
+            return json_error("Неизвестный предмет", 400)
+        database = get_db()
+        database.execute("BEGIN IMMEDIATE")
+        player = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
+        progress = reward_progress(player)
+        owned = progress.setdefault("owned", [])
+        if item in owned or player["active_round"]:
+            database.rollback()
+            return json_error("Предмет уже куплен или нужно завершить текущий раунд", 409)
+        price, tier = SHOP_ITEMS[item]
+        numerator, divisor = price, 1
+        if progress.get("storyFlags", {}).get("trustedMax"):
+            numerator *= 92
+            divisor *= 100
+        if "infrastructure" in owned:
+            numerator *= 97
+            divisor *= 100
+        price = max(1, (numerator + divisor // 2) // divisor)
+        if price > player["wallet_balance"]:
+            database.rollback()
+            return json_error("Недостаточно средств", 409)
+        owned.append(item)
+        progress["reputation"] = progress.get("reputation", 0) + 3 * (tier + 1)
+        database.execute(
+            "UPDATE players SET wallet_balance_exact = ?, purchases = purchases + 1, progress_state = ? WHERE id = ?",
+            (str(player["wallet_balance"] - price), json.dumps(progress, separators=(",", ":")), player["id"]),
+        )
+        database.commit()
+        updated = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
+        return jsonify({"user": player_json(updated), "state": game_state_for(updated), "cost": price})
+
+    @app.post("/api/quests/claim")
+    def claim_quest():
+        if not origin_is_allowed():
+            return json_error("Источник запроса не разрешен", 403)
+        player, error = require_player()
+        if error:
+            return error
+        payload = request_json()
+        quest = payload.get("quest_id") if payload else None
+        if not isinstance(quest, str) or quest not in QUEST_REWARDS:
+            return json_error("Неизвестное задание", 400)
+        database = get_db()
+        database.execute("BEGIN IMMEDIATE")
+        player = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
+        progress = reward_progress(player)
+        claimed = progress.setdefault("claimed", [])
+        if quest in claimed:
+            database.rollback()
+            return json_error("Награда уже получена", 409)
+        field, threshold, reward = QUEST_REWARDS[quest]
+        if player[field] < threshold:
+            database.rollback()
+            return json_error("Задание ещё не выполнено", 409)
+        bonuses = int(bool(progress.get("storyFlags", {}).get("investedHall"))) + int("profit_share" in progress.get("owned", []))
+        divisor = 100 ** bonuses
+        reward = (reward * 105 ** bonuses + divisor // 2) // divisor
+        claimed.append(quest)
+        progress["reputation"] = progress.get("reputation", 0) + 10
+        return credit_reward(database, player, progress, reward)
+
+    @app.post("/api/refill/challenge")
+    def refill_challenge():
+        if not origin_is_allowed():
+            return json_error("Источник запроса не разрешен", 403)
+        player, error = require_player()
+        if error:
+            return error
+        database = get_db()
+        database.execute("BEGIN IMMEDIATE")
+        player = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
+        now = int(time.time() * 1000)
+        error = refill_available(player, reward_progress(player), now)
+        if error:
+            database.rollback()
+            return error
+        a, b = secrets.randbelow(9) + 4, secrets.randbelow(7) + 3
+        challenge_id = secrets.token_urlsafe(24)
+        database.execute(
+            "INSERT OR REPLACE INTO refill_challenges (player_id, challenge_id, answer, expires_at) VALUES (?, ?, ?, ?)",
+            (player["id"], challenge_id, a * b, now + 120000),
+        )
+        database.commit()
+        return jsonify({"challenge_id": challenge_id, "a": a, "b": b})
+
+    @app.post("/api/refill/claim")
+    def claim_refill():
+        if not origin_is_allowed():
+            return json_error("Источник запроса не разрешен", 403)
+        player, error = require_player()
+        if error:
+            return error
+        payload = request_json()
+        if not payload or not isinstance(payload.get("challenge_id"), str) or type(payload.get("answer")) is not int:
+            return json_error("Некорректный ответ", 400)
+        database = get_db()
+        database.execute("BEGIN IMMEDIATE")
+        player = database.execute("SELECT * FROM players WHERE id = ?", (player["id"],)).fetchone()
+        progress, now = reward_progress(player), int(time.time() * 1000)
+        error = refill_available(player, progress, now)
+        if error:
+            database.rollback()
+            return error
+        challenge = database.execute("SELECT * FROM refill_challenges WHERE player_id = ?", (player["id"],)).fetchone()
+        if not challenge or not secrets.compare_digest(challenge["challenge_id"].encode(), payload["challenge_id"].encode()):
+            database.rollback()
+            return json_error("Получи новое уравнение для резерва", 409)
+        database.execute("DELETE FROM refill_challenges WHERE player_id = ?", (player["id"],))
+        if challenge["expires_at"] <= now or challenge["answer"] != payload["answer"]:
+            database.commit()
+            return json_error("Ответ неверный или время решения истекло", 400)
+        progress["lastRefill"] = now
+        return credit_reward(database, player, progress, 5000)
 
     @app.get("/api/games/active")
     def active_game():

@@ -17,3 +17,18 @@ assert.equal(fmt(huge).replace(/\\s/g,''),huge.toString());
 assert.equal(moneyAbs(-huge),huge);
 `,context);
 console.log('Frontend syntax and exact money checks passed');
+
+const timing=script.slice(script.indexOf('function cupShuffleTiming('),script.indexOf('function createCupTable('));
+vm.runInContext(timing+`
+const speeds=Array.from({length:16},(_,step)=>cupShuffleTiming(step,16));
+assert.equal(speeds[0].duration,220);
+assert.equal(speeds[1].duration,220);
+assert.equal(speeds[0].pause,50);
+assert.equal(speeds[15].duration,70);
+assert.equal(speeds[15].pause,8);
+for(let i=1;i<speeds.length;i++){
+  assert.ok(speeds[i].duration<=speeds[i-1].duration);
+  assert.ok(speeds[i].pause<=speeds[i-1].pause);
+}
+`,context);
+console.log('Cup shuffle starts at the original speed and progressively accelerates');

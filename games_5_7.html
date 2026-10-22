@@ -1209,6 +1209,11 @@ function buildHighlow(box){
 }
 
 /* ══════════ 9. НАПЁРСТКИ ══════════ */
+function cupShuffleTiming(step,total){
+  const progress=Math.max(0,Math.min(1,(step-1)/Math.max(1,total-2)));
+  const acceleration=Math.pow(progress,1.1);
+  return{duration:Math.round(220-150*acceleration),pause:Math.round(50-42*acceleration)};
+}
 function createCupTable(container,onPick){
   container.innerHTML='<div class="cups-row" aria-label="Три стакана"></div>';
   const row=container.querySelector('.cups-row');
@@ -1235,17 +1240,18 @@ function createCupTable(container,onPick){
     cups[preview].classList.remove('peek','ball-shown');
     await wait(220);if(disposed||generation!==run)return;
     onPhase('shuffle');
-    for(const [first,second] of swaps){
+    for(let step=0;step<swaps.length;step++){
+      const [first,second]=swaps[step],timing=cupShuffleTiming(step,swaps.length);
       if(disposed||generation!==run)return;
       const before=[...order];[order[first],order[second]]=[order[second],order[first]];
       animations=[before[first],before[second]].map((id,index)=>{
         const from=before.indexOf(id),to=order.indexOf(id),middle=(from+to)/2;
         cups[id].style.zIndex=index===0?'2':'1';cups[id].style.transform=transform(id,to);
-        return cups[id].animate([{transform:transform(id,from)},{transform:transform(id,middle,index===0?-14:14)},{transform:transform(id,to)}],{duration:220,easing:'cubic-bezier(.45,0,.55,1)'});
+        return cups[id].animate([{transform:transform(id,from)},{transform:transform(id,middle,index===0?-14:14)},{transform:transform(id,to)}],{duration:timing.duration,easing:'cubic-bezier(.45,0,.55,1)'});
       });
       await Promise.all(animations.map(animation=>animation.finished.catch(()=>{})));
       if(disposed||generation!==run)return;
-      animations=[];await wait(50);
+      animations=[];await wait(timing.pause);
     }
     if(disposed||generation!==run)return;
     cups.forEach(cup=>cup.style.zIndex='');onPhase('guess');locked(false);
@@ -1268,7 +1274,7 @@ function buildCups(box){
   start.onclick=()=>{
     if(phase!=='idle'&&phase!=='result')return;if(curBet>S.balance){toast('Не хватает на ставку');return;}
     start.disabled=true;lockBetBar(bar,true);changeBalance(-curBet);recordWager(curBet);res.className='res';
-    const preview=irnd(0,2),order=[0,1,2],swaps=Array.from({length:10},()=>{const first=irnd(0,2);let second=irnd(0,1);if(second>=first)second++;return[first,second];});
+    const preview=irnd(0,2),order=[0,1,2],swaps=Array.from({length:16},()=>{const first=irnd(0,2);let second=irnd(0,1);if(second>=first)second++;return[first,second];});
     swaps.forEach(([a,b])=>{[order[a],order[b]]=[order[b],order[a]];});ballSlot=order.indexOf(preview);
     table.play(preview,swaps,next=>{phase=next;hint.textContent=next==='preview'?'ЗАПОМНИ, ГДЕ ШАРИК':next==='shuffle'?'СЛЕДИ ЗА СТАКАНОМ':'ГДЕ ШАРИК? ВЫБЕРИ СТАКАН';});
   };

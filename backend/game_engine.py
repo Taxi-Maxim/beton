@@ -177,7 +177,7 @@ def start_round(game, bet, choice=None, options=None, perks=None):
         return round_state, {"result": result}, finish_round(payout, payout, "win" if is_win else "lose")
 
     if game == "cups":
-        swaps = [RNG.sample(range(3), 2) for _ in range(10)]
+        swaps = [RNG.sample(range(3), 2) for _ in range(16)]
         order = [0, 1, 2]
         for first, second in swaps:
             order[first], order[second] = order[second], order[first]

@@ -53,3 +53,15 @@ assert.equal(load().owned[0],'watch');
 assert.throws(()=>normalizeState({balance:'Infinity'}));
 `,context);
 console.log('Scientific amounts and backup recovery preserve balances instead of resetting progress');
+
+const highlow=script.slice(script.indexOf('const HIGHLOW_RTP='),script.indexOf('function buildHighlow('));
+vm.runInContext('const hasSkill=()=>false;'+highlow+`
+for(const current of [2,7,14])for(const direction of ['high','low']){
+  assert.ok(highLowCorrect(current,current,direction));
+  const count=direction==='high'?15-current:current-1;
+  assert.ok(Math.abs(highLowStep(current,direction).growth-.96*13/count)<1e-10);
+}
+assert.equal(highLowCorrect(7,6,'high'),false);
+assert.equal(highLowCorrect(7,8,'low'),false);
+`,context);
+console.log('High/low ties succeed for both directions, including two and ace');

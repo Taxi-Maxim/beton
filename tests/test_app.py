@@ -255,6 +255,24 @@ class AccountApiTests(unittest.TestCase):
         self.assertEqual(state["balance"], str(10**100))
         self.assertEqual(state["stats"]["won"], str(12345 * 10**26))
 
+    def test_highlow_equal_card_is_success_and_can_be_cashed_out(self):
+        from unittest.mock import patch
+        self.register()
+        for action, expected_payout in (("higher", 156), ("lower", 208)):
+            with self.subTest(action=action):
+                before = int(self.client.get("/api/state").json["state"]["balance"])
+                with patch("backend.game_engine.RNG.randint", return_value=7):
+                    started = self.client.post("/api/games/start", json={"game": "highlow", "bet": 100})
+                    result = self.client.post("/api/games/action", json={"round_id": started.json["round_id"], "action": action, "data": {"payout": 10**100}})
+                self.assertEqual(result.status_code, 200)
+                self.assertIsNone(result.json["outcome"])
+                self.assertTrue(result.json["round"]["tie"])
+                self.assertEqual(result.json["round"]["rounds"], 1)
+                cashed = self.client.post("/api/games/action", json={"round_id": result.json["round_id"], "action": "cashout"})
+                self.assertEqual(cashed.status_code, 200)
+                self.assertEqual(cashed.json["outcome"]["payout"], expected_payout)
+                self.assertEqual(int(cashed.json["state"]["balance"]), before - 100 + expected_payout)
+
     def test_cross_site_without_origin_is_rejected(self):
         self.register()
         response = self.client.post("/api/games/start", json={"game": "cups", "bet": 100},

@@ -754,7 +754,7 @@ const GAMES={
   coinflip:{name:'ОРЁЛ И РЕШКА',ac:'#d9a7ff',span:'sp3',tag:'Один выбор. Один бросок. Чистые 2×.',pay:'2×',
     rule:'Выбери сторону монеты. Угадал — получаешь двойную ставку.'},
   highlow:{name:'ВЫШЕ / НИЖЕ',ac:'#61d4ff',span:'sp3',tag:'Цепочка карт. Риск растёт с каждым ходом.',pay:'ДО 20×',
-    rule:'Угадывай следующий ранг. Равенство проигрывает; чем сложнее переход, тем выше рост коэффициента. Забрать можно после успеха.'},
+    rule:'Угадывай следующий ранг. Одинаковая карта засчитывается при любом выборе; чем сложнее переход, тем выше рост коэффициента. Забрать можно после успеха.'},
   cups:{name:'НАПЁРСТКИ',ac:'#ff5db1',span:'sp3',tag:'Три стакана, один шарик и никаких подсказок.',pay:'ДО 2,85×',
     rule:'Запомни шарик, следи за стаканами и выбери верный. Базовая выплата 2,7×; магнит из магазина повышает её до 2,85×.'},
   poker:{name:'ПОКЕР',ac:'#9cff57',span:'sp3',tag:'Пять карт, один обмен и решение, что оставить.',pay:'ДО 100×',
@@ -1205,11 +1205,12 @@ function buildCoinflip(box){
 /* ══════════ 8. ВЫШЕ / НИЖЕ ══════════ */
 const HIGHLOW_RTP=0.96;
 function highLowStep(current,direction){
-  const winningRanks=direction==='high'?14-current:current-2;
+  const winningRanks=direction==='high'?15-current:current-1;
   if(winningRanks<=0)return null;
   const chance=winningRanks/13;
   return{chance,growth:(hasSkill('counting_ledger')?0.98:HIGHLOW_RTP)/chance};
 }
+function highLowCorrect(current,next,direction){return next===current||(direction==='high'?next>current:next<current);}
 function buildHighlow(box){
   let active=false,current=7,mult=1,curBet=0,rounds=0;
   const labels={11:'J',12:'Q',13:'K',14:'A'};const cardName=n=>labels[n]||String(n);
@@ -1229,8 +1230,8 @@ function buildHighlow(box){
   }
   function finish(win){active=false;start.disabled=false;updateGuessButtons();cash.disabled=true;lockBetBar(bar,false);if(win){const w=moneyProduct(curBet,mult);changeBalance(w,mult>=4?'winBig':'win');recordWin(w);res.className='res on win';res.textContent='Цепочка закрыта: ×'+mult.toFixed(2)+' · +'+fmt(w)+' ₽';}else{Snd.lose();res.className='res on lose';res.textContent='Цепочка сорвалась на карте '+cardName(current)+'.';}}
   function guess(dir){if(!active)return;const previous=current,step=highLowStep(previous,dir);if(!step)return;const next=irnd(2,14);current=next;show(current);
-    if(next>previous&&dir==='high'||next<previous&&dir==='low'){
-      rounds++;mult=Math.min(20,mult*step.growth);multEl.textContent=mult.toFixed(2);cash.disabled=false;Snd.coin();res.className='res on push';res.textContent='Верно. Ещё ход или забирай.';updateGuessButtons();if(mult>=20)finish(true);
+    if(highLowCorrect(previous,next,dir)){
+      rounds++;mult=Math.min(20,mult*step.growth);multEl.textContent=mult.toFixed(2);cash.disabled=false;Snd.coin();res.className='res on push';res.textContent=next===previous?'Та же карта — ответ засчитан. Продолжай или забирай.':'Верно. Ещё ход или забирай.';updateGuessButtons();if(mult>=20)finish(true);
     }else finish(false);
   }
   start.onclick=()=>{if(active)return;if(curBet>S.balance){toast('Не хватает на ставку');return;}changeBalance(-curBet);recordWager(curBet);active=true;lockBetBar(bar,true);rounds=0;mult=1;current=irnd(2,14);show(current);multEl.textContent='1.00';res.className='res';start.disabled=true;cash.disabled=true;updateGuessButtons();};
@@ -1776,6 +1777,7 @@ function buildServerGame(box,id){
     actionButtons.forEach(([action,label])=>{const button=btn(label,'btn sm');button.onclick=()=>sendAction(action,action==='draw'?{keep:[...kept]}:{});actions.appendChild(button);});
     if(id==='cups'){if(!roundId)hint.textContent='НАЖМИ «НАЧАТЬ РАУНД», ЧТОБЫ СЫГРАТЬ';}
     else if(id==='mines'&&!round.opened?.length)hint.textContent='Открывай плитки; расположение мин знает только сервер.';
+    else if(id==='highlow'&&round.tie)hint.textContent='Та же карта — ответ засчитан. Продолжай или забирай.';
     else hint.textContent='Раунд хранится на сервере. Переиграть один round ID нельзя.';
   }
   async function sendAction(action,data){

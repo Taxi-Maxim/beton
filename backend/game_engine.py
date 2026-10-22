@@ -242,14 +242,14 @@ def advance_round(round_state, action, data=None, perks=None):
         previous = round_state["current"]
         next_card = RNG.randint(2, 14)
         round_state["current"] = next_card
-        if next_card == previous or (action == "higher" and next_card < previous) or (action == "lower" and next_card > previous):
+        if (action == "higher" and next_card < previous) or (action == "lower" and next_card > previous):
             round_state["phase"] = "over"
             return round_state, {"current": next_card, "phase": "over"}, finish_round()
-        winning_ranks = 14 - previous if action == "higher" else previous - 2
+        winning_ranks = 15 - previous if action == "higher" else previous - 1
         rtp = 0.98 if perks.get("counting_ledger") else 0.96
         round_state["multiplier"] = min(20, round_state["multiplier"] * (rtp / (winning_ranks / 13)))
         round_state["rounds"] += 1
-        public = {"current": next_card, "phase": "guess", "rounds": round_state["rounds"], "multiplier": round_state["multiplier"]}
+        public = {"current": next_card, "phase": "guess", "rounds": round_state["rounds"], "multiplier": round_state["multiplier"], "tie": next_card == previous}
         if round_state["multiplier"] >= 20:
             round_state["phase"] = "over"
             public["phase"] = "over"

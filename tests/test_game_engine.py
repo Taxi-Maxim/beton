@@ -63,13 +63,28 @@ class ServerGameEngineTests(unittest.TestCase):
         self.assertNotIn("swaps", state)
         self.assertEqual(public_round(state), public)
 
-    def test_highlow_tie_is_a_loss_and_cannot_set_client_payout(self):
-        state = {"game": "highlow", "bet": 100, "current": 7, "multiplier": 1.8, "rounds": 1, "phase": "guess"}
-        with patch("backend.game_engine.RNG.randint", return_value=7):
-            _updated, _public, result = advance_round(state, "higher", {"payout": 10**12})
+    def test_highlow_ties_win_for_both_directions_and_extreme_cards(self):
+        for current in (2, 7, 14):
+            for action in ("higher", "lower"):
+                with self.subTest(current=current, action=action):
+                    state = {"game": "highlow", "bet": 100, "current": current, "multiplier": 1.0, "rounds": 0, "phase": "guess"}
+                    with patch("backend.game_engine.RNG.randint", return_value=current):
+                        updated, public, outcome = advance_round(state, action, {"payout": 10**12})
+                    self.assertIsNone(outcome)
+                    self.assertTrue(public["tie"])
+                    self.assertEqual(updated["rounds"], 1)
+                    winning = 15 - current if action == "higher" else current - 1
+                    self.assertAlmostEqual(updated["multiplier"], 0.96 * 13 / winning)
+                    _, _, result = advance_round(updated, "cashout")
+                    self.assertEqual(result["result"], "win")
+                    self.assertLess(result["payout"], 1300)
 
-        self.assertEqual(result["payout"], 0)
-        self.assertEqual(result["won"], 0)
+    def test_highlow_wrong_direction_still_loses(self):
+        for action, next_card in (("higher", 6), ("lower", 8)):
+            state = {"game": "highlow", "bet": 100, "current": 7, "multiplier": 1.0, "rounds": 0, "phase": "guess"}
+            with patch("backend.game_engine.RNG.randint", return_value=next_card):
+                _, _, result = advance_round(state, action)
+            self.assertEqual(result["payout"], 0)
 
     def test_mines_result_comes_from_server_layout(self):
         state = {"game": "mines", "bet": 100, "mines": [3], "opened": [], "mine_count": 1, "phase": "active"}

@@ -39,9 +39,13 @@ class ServerGameEngineTests(unittest.TestCase):
         for _ in range(100):
             state, public, _ = start_round("cups", 100)
             order = [0, 1, 2]
-            for first, second in public["swaps"]:
-                self.assertNotEqual(first, second)
-                order[first], order[second] = order[second], order[first]
+            self.assertEqual(len(public["swaps"]), 28)
+            for slots in public["swaps"]:
+                self.assertIn(len(slots), (2, 3))
+                self.assertEqual(len(slots), len(set(slots)))
+                moved = [order[slot] for slot in slots]
+                for slot, cup in zip(slots, moved[-1:] + moved[:-1]):
+                    order[slot] = cup
             picked = order.index(public["preview_ball"])
             self.assertEqual(picked, state["ball"])
             self.assertEqual(public_round(state), public)

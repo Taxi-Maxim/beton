@@ -66,8 +66,10 @@ def public_round(round_state):
         # changing their stored winning position or charging another bet.
         swaps = round_state.get("swaps", [[0, 1], [1, 2], [0, 2]] * 3)
         order = [0, 1, 2]
-        for first, second in swaps:
-            order[first], order[second] = order[second], order[first]
+        for slots in swaps:
+            before = order.copy()
+            for index, slot in enumerate(slots):
+                order[slots[(index + 1) % len(slots)]] = before[slot]
         return {"phase": phase, "preview_ball": round_state.get("preview_ball", order[round_state["ball"]]), "swaps": swaps}
     if game == "poker":
         return {"hand": round_state["hand"], "phase": phase}
@@ -177,10 +179,12 @@ def start_round(game, bet, choice=None, options=None, perks=None):
         return round_state, {"result": result}, finish_round(payout, payout, "win" if is_win else "lose")
 
     if game == "cups":
-        swaps = [RNG.sample(range(3), 2) for _ in range(16)]
+        swaps = [RNG.sample(range(3), 3 if step >= 4 and RNG.random() < 0.55 else 2) for step in range(28)]
         order = [0, 1, 2]
-        for first, second in swaps:
-            order[first], order[second] = order[second], order[first]
+        for slots in swaps:
+            before = order.copy()
+            for index, slot in enumerate(slots):
+                order[slots[(index + 1) % len(slots)]] = before[slot]
         ball = RNG.randrange(3)
         round_state.update({"ball": ball, "preview_ball": order[ball], "swaps": swaps, "phase": "pick"})
         return round_state, public_round(round_state), None

@@ -20,12 +20,16 @@ console.log('Frontend syntax and exact money checks passed');
 
 const timing=script.slice(script.indexOf('function cupShuffleTiming('),script.indexOf('function createCupTable('));
 vm.runInContext(timing+`
-const speeds=Array.from({length:16},(_,step)=>cupShuffleTiming(step,16));
+const speeds=Array.from({length:28},(_,step)=>cupShuffleTiming(step,28));
 assert.equal(speeds[0].duration,220);
 assert.equal(speeds[1].duration,220);
 assert.equal(speeds[0].pause,50);
-assert.equal(speeds[15].duration,70);
-assert.equal(speeds[15].pause,8);
+assert.equal(speeds[27].duration,45);
+assert.equal(speeds[27].pause,0);
+assert.equal(speeds[18].duration,45);
+assert.equal(JSON.stringify(cupOrderAfterMove([0,1,2],[0,1,2])),JSON.stringify([2,0,1]));
+assert.equal(JSON.stringify(cupOrderAfterMove([0,1,2],[0,2,1])),JSON.stringify([1,2,0]));
+assert.equal(JSON.stringify(cupOrderAfterMove([0,1,2],[0,2])),JSON.stringify([2,1,0]));
 for(let i=1;i<speeds.length;i++){
   assert.ok(speeds[i].duration<=speeds[i-1].duration);
   assert.ok(speeds[i].pause<=speeds[i-1].pause);

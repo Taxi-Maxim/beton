@@ -23,9 +23,36 @@ container=$(compose ps -q web)
 if [[ -n $container ]]; then
     mkdir -p .deploy/backups
     backup=".deploy/backups/beton-$(date +%Y%m%d-%H%M%S)-$$.sqlite3"
-    compose exec -T web python -c 'import sqlite3; source=sqlite3.connect("/data/beton.sqlite3"); target=sqlite3.connect("/tmp/deploy-backup.sqlite3"); source.backup(target); target.close(); source.close()'
-    docker cp "$container:/tmp/deploy-backup.sqlite3" "$backup"
-    chmod 600 "$backup"
+    # Stream the backup through exec: docker cp can miss files on mounted /tmp.
+    if ! (
+        umask 077
+        compose exec -T web python - > "$backup.partial" <<'PYBACKUP'
+import os
+import shutil
+import sqlite3
+import sys
+import tempfile
+from contextlib import closing
+from pathlib import Path
+
+source_uri = Path(os.environ.get("BETON_DATABASE", "/data/beton.sqlite3")).resolve().as_uri() + "?mode=ro"
+with tempfile.TemporaryDirectory(prefix="beton-backup-") as directory:
+    snapshot = Path(directory) / "backup.sqlite3"
+    with closing(sqlite3.connect(source_uri, uri=True)) as source:
+        with closing(sqlite3.connect(snapshot)) as target:
+            source.backup(target)
+            if target.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+                raise RuntimeError("SQLite backup integrity check failed")
+    with snapshot.open("rb") as stream:
+        shutil.copyfileobj(stream, sys.stdout.buffer)
+    sys.stdout.buffer.flush()
+PYBACKUP
+    ); then
+        rm -f -- "$backup.partial"
+        fail 'Не удалось сохранить резервную копию базы. Обновление остановлено.'
+    fi
+    [[ -s $backup.partial ]] || fail 'Получена пустая резервная копия. Обновление остановлено.'
+    mv -- "$backup.partial" "$backup"
     printf 'Резервная копия базы: %s\n' "$backup"
 fi
 # Keep local configuration, runtime data and deployment state across releases.

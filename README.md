@@ -207,7 +207,8 @@ sudo docker compose up -d --build
 
 ```bash
 sudo docker compose exec -T web python -c 'import sqlite3; source=sqlite3.connect("/data/beton.sqlite3"); target=sqlite3.connect("/tmp/beton-backup.sqlite3"); source.backup(target); target.close(); source.close()'
-sudo docker cp "$(sudo docker compose ps -q web):/tmp/beton-backup.sqlite3" "/opt/beton-backup-$(date +%F-%H%M%S).sqlite3"
+umask 077
+sudo docker compose exec -T web python -c 'import shutil, sys; source=open("/tmp/beton-backup.sqlite3", "rb"); shutil.copyfileobj(source, sys.stdout.buffer); source.close()' > "$HOME/beton-backup-$(date +%F-%H%M%S).sqlite3"
 ```
 
 Volume можно проверить командой `sudo docker volume inspect beton-data`. Не выполняйте `sudo docker compose down -v`, если хотите сохранить аккаунты и игровой прогресс: флаг `-v` удалит базу.

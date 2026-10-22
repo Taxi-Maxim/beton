@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from backend.game_engine import advance_round, start_round, poker_payout
+from backend.game_engine import advance_round, start_round, poker_payout, public_round
 
 
 class ServerGameEngineTests(unittest.TestCase):
@@ -34,6 +34,30 @@ class ServerGameEngineTests(unittest.TestCase):
         self.assertEqual(result["payout"], 270)
         self.assertEqual(result["won"], 270)
         self.assertFalse(winning_state["phase"] == "pick")
+
+    def test_cup_preview_and_swaps_match_the_paid_position(self):
+        for _ in range(100):
+            state, public, _ = start_round("cups", 100)
+            order = [0, 1, 2]
+            for first, second in public["swaps"]:
+                self.assertNotEqual(first, second)
+                order[first], order[second] = order[second], order[first]
+            picked = order.index(public["preview_ball"])
+            self.assertEqual(picked, state["ball"])
+            self.assertEqual(public_round(state), public)
+            _, revealed, outcome = advance_round(state, "pick", {"cup": picked})
+            self.assertEqual(revealed["ball"], picked)
+            self.assertEqual(outcome["payout"], 270)
+
+    def test_legacy_cup_round_replays_without_changing_winner(self):
+        state = {"game": "cups", "bet": 100, "ball": 1, "phase": "pick"}
+        public = public_round(state)
+        order = [0, 1, 2]
+        for first, second in public["swaps"]:
+            order[first], order[second] = order[second], order[first]
+        self.assertEqual(order.index(public["preview_ball"]), 1)
+        self.assertNotIn("swaps", state)
+        self.assertEqual(public_round(state), public)
 
     def test_highlow_tie_is_a_loss_and_cannot_set_client_payout(self):
         state = {"game": "highlow", "bet": 100, "current": 7, "multiplier": 1.8, "rounds": 1, "phase": "guess"}

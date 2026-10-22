@@ -62,7 +62,13 @@ def public_round(round_state):
     if game == "highlow":
         return {key: round_state[key] for key in ("current", "multiplier", "rounds", "phase")}
     if game == "cups":
-        return {"phase": phase}
+        # Older in-progress rounds also get a replayable presentation, without
+        # changing their stored winning position or charging another bet.
+        swaps = round_state.get("swaps", [[0, 1], [1, 2], [0, 2]] * 3)
+        order = [0, 1, 2]
+        for first, second in swaps:
+            order[first], order[second] = order[second], order[first]
+        return {"phase": phase, "preview_ball": round_state.get("preview_ball", order[round_state["ball"]]), "swaps": swaps}
     if game == "poker":
         return {"hand": round_state["hand"], "phase": phase}
     if game == "crash":
@@ -171,8 +177,13 @@ def start_round(game, bet, choice=None, options=None, perks=None):
         return round_state, {"result": result}, finish_round(payout, payout, "win" if is_win else "lose")
 
     if game == "cups":
-        round_state.update({"ball": RNG.randrange(3), "phase": "pick"})
-        return round_state, {"phase": "pick"}, None
+        swaps = [RNG.sample(range(3), 2) for _ in range(10)]
+        order = [0, 1, 2]
+        for first, second in swaps:
+            order[first], order[second] = order[second], order[first]
+        ball = RNG.randrange(3)
+        round_state.update({"ball": ball, "preview_ball": order[ball], "swaps": swaps, "phase": "pick"})
+        return round_state, public_round(round_state), None
 
     if game == "highlow":
         round_state.update({"current": RNG.randint(2, 14), "multiplier": 1.0, "rounds": 0, "phase": "guess"})
@@ -216,7 +227,7 @@ def advance_round(round_state, action, data=None, perks=None):
         multiplier = 2.7 + (0.15 if perks.get("cup_magnet") else 0) + (0.05 if perks.get("choseConnections") else 0)
         payout = money_product(bet, multiplier) if is_win else 0
         round_state["phase"] = "over"
-        return round_state, {"cup": picked, "ball": round_state["ball"], "multiplier": multiplier}, finish_round(payout, payout, "win" if is_win else "lose")
+        return round_state, {"cup": picked, "ball": round_state["ball"], "multiplier": multiplier, "phase": "over"}, finish_round(payout, payout, "win" if is_win else "lose")
 
     if game == "highlow" and round_state.get("phase") == "guess":
         if action == "cashout" and round_state["rounds"] > 0:

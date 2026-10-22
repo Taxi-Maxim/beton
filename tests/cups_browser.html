@@ -1,0 +1,54 @@
+<!doctype html><meta charset="utf-8"><title>Cups regression check</title>
+<pre id="report">RUNNING</pre><iframe id="game" src="/" style="width:1000px;height:1000px"></iframe>
+<script>
+const frame=document.querySelector('#game'),report=document.querySelector('#report');
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+async function until(predicate,message){for(let i=0;i<500;i++){if(predicate())return;await delay(40);}throw new Error(message);}
+frame.onload=async()=>{
+  const w=frame.contentWindow,d=w.document,checks=[];
+  try{
+    await until(()=>w.eval('authReady'),'Account initialization timed out');
+    w.eval("S=freshState();S.sound=false;firstStoryLaunch=false;maybeOpenStory=()=>{};");
+    await delay(500);d.querySelector('#dialogOverlay').classList.remove('on');
+    d.querySelectorAll('.overlay,.modal').forEach(node=>node.remove());
+    async function round(mode,index){
+      const before=BigInt(w.eval('S.balance'));
+      const start=d.querySelector('#gameBody > button.btn');assert(start,'Missing start button');
+      start.click();
+      await until(()=>d.querySelector('.cup-choice.peek.ball-shown'),'Missing ball preview');
+      const marked=d.querySelector('.cup-choice.peek.ball-shown');
+      await until(()=>w.getComputedStyle(marked.querySelector('.cup-ball')).opacity==='1','Preview ball is invisible');
+      assert(w.getComputedStyle(marked).filter==='none','Disabled cup greys out preview');
+      assert([...d.querySelectorAll('.cup-choice')].every(cup=>cup.disabled),'Picking is allowed during preview');
+      await until(()=>!marked.classList.contains('peek'),'Preview never closes');
+      frame.style.width='360px';
+      await until(()=>[...d.querySelectorAll('.cup-choice')].every(cup=>!cup.disabled),'Shuffle never finishes');
+      const cups=[...d.querySelectorAll('.cup-choice')];
+      const rects=cups.map(cup=>cup.getBoundingClientRect()).sort((a,b)=>a.left-b.left);
+      assert(rects[1].left>=rects[0].right-1&&rects[2].left>=rects[1].right-1,'Cups overlap after resizing');
+      assert(cups.every(cup=>cup.querySelectorAll('.cup-ball').length===1),'Ball elements duplicated');
+      assert(cups.every(cup=>w.getComputedStyle(cup.querySelector('.cup-ball')).opacity==='0'),'Ball remains visible during guessing');
+      marked.click();
+      await until(()=>d.querySelector('.cup-choice.revealed'),'Result never reveals ball');
+      assert(marked.classList.contains('revealed'),'Result reveals a different cup than the tracked cup');
+      await until(()=>w.getComputedStyle(marked.querySelector('.cup-ball')).opacity==='1','Result ball invisible');
+      assert(!cups.some(cup=>cup.textContent.includes('?')),'Question marks in cup result');
+      assert(BigInt(w.eval('S.balance'))===before+850n,'Correctly tracked cup did not win');
+      frame.style.width='1000px';checks.push(mode+' round '+index+' passed');
+    }
+    w.eval("openGame('cups')");await round('guest',1);await round('guest',2);
+    w.eval("showView('lobby')");
+    const account=await w.eval("apiRequest('/api/auth/register',{method:'POST',body:JSON.stringify({email:'cups-browser@example.com',username:'cups_browser',password:'test-password-123'})})");
+    await w.activateAccount(account.user);w.eval("openGame('cups')");
+    await delay(150);await round('account',1);await round('account',2);
+    // Start another round and reopen it to exercise recovery and timer cleanup.
+    d.querySelector('#gameBody > button.btn').click();
+    await until(()=>d.querySelector('.cup-choice.peek'),'Missing preview before recovery');
+    w.eval("showView('lobby');openGame('cups')");
+    await until(()=>d.querySelector('.cup-choice.peek'),'Recovered round did not replay preview');
+    checks.push('active round recovery passed');
+    report.textContent=JSON.stringify({ok:true,checks});
+  }catch(error){report.textContent=JSON.stringify({ok:false,error:error.stack,checks});}
+};
+</script>

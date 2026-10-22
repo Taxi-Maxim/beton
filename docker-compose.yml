@@ -1,0 +1,39 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    environment:
+      BETON_DATABASE: /data/beton.sqlite3
+      BETON_COOKIE_SECURE: ${BETON_COOKIE_SECURE:-true}
+      BETON_BEHIND_PROXY: "true"
+      BETON_PUBLIC_ORIGIN: ${BETON_PUBLIC_ORIGIN:-https://example.com}
+    ports:
+      - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-8000}:8000"
+    volumes:
+      - beton-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/auth/me', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  beton-data:
+    name: beton-data

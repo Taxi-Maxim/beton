@@ -1,0 +1,10 @@
+.git
+.deploy
+.venv
+__pycache__
+*.py[cod]
+.env
+instance
+data
+tests
+README.md

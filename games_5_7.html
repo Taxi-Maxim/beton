@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#141414"/>
+<title>БЕТОН — жёсткое казино</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎰</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#141414;--panel:#1e1e1e;--paper:#e9e3d5;--dim:#8f8a7e;
+  --yellow:#ffc61a;--red:#e8331f;--green:#35e07a;--orange:#ff7a1a;--cyan:#2ec5e0;--lime:#b8e62e;
+  --hs:6px 6px 0 #000;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Oswald',sans-serif;background:var(--bg);color:var(--paper);min-height:100vh;overflow-x:hidden}
+button{font:inherit}
+button:focus-visible,.gcard:focus-visible,.tile:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}
+::selection{background:var(--yellow);color:#111}
+::-webkit-scrollbar{width:12px}
+::-webkit-scrollbar-track{background:#101010}
+::-webkit-scrollbar-thumb{background:#333;border:3px solid #101010}
+::-webkit-scrollbar-thumb:hover{background:var(--yellow)}
+body::before{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.055;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px 180px}
+body::after{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(130% 100% at 50% 0%,transparent 50%,rgba(0,0,0,.5) 100%)}
+#wm{position:fixed;right:-5%;bottom:-12%;z-index:0;font-family:'Russo One';font-size:26vw;line-height:1;
+  color:transparent;-webkit-text-stroke:2px rgba(233,227,213,.05);transform:rotate(-8deg);
+  pointer-events:none;user-select:none;animation:wmfloat 16s ease-in-out infinite alternate}
+@keyframes wmfloat{to{transform:rotate(-8deg) translateY(-36px)}}
+.rail{position:fixed;left:0;right:0;height:8px;z-index:40;pointer-events:none;opacity:.9;
+  background:repeating-linear-gradient(-45deg,var(--yellow) 0 14px,#0e0e0e 14px 28px);animation:railmove 14s linear infinite}
+.rail.top{top:0}.rail.bot{bottom:0}
+@keyframes railmove{to{background-position:396px 0}}
+#app.shake{animation:screenshake .5s}
+@keyframes screenshake{10%{transform:translate(-7px,4px)}25%{transform:translate(6px,-5px)}40%{transform:translate(-5px,3px)}55%{transform:translate(4px,-2px)}70%{transform:translate(-3px,2px)}85%{transform:translate(2px,-1px)}100%{transform:none}}
+
+/* ── бегущая строка ── */
+#ticker{position:relative;z-index:2;background:#0b0b0b;border-bottom:1px solid #262626;overflow:hidden;
+  font-family:'JetBrains Mono';font-size:12px;color:var(--dim);padding:9px 0}
+#ticker .track{display:inline-flex;white-space:nowrap;animation:tickmove 48s linear infinite;will-change:transform}
+#ticker:hover .track{animation-play-state:paused}
+#ticker .ti b{color:var(--yellow);font-weight:700}
+#ticker .tw{color:var(--green);font-weight:700}
+#ticker .sep{color:#333;margin:0 26px}
+@keyframes tickmove{to{transform:translateX(-50%)}}
+
+/* ── шапка ── */
+header{position:relative;z-index:2;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:20px 28px 18px;background:linear-gradient(180deg,#1d1d1d,#151515);border-bottom:3px solid #000}
+header{background-image:radial-gradient(circle at 78% -40%,rgba(46,197,224,.16),transparent 42%),linear-gradient(180deg,#202020,#151515)}
+.logo{font-family:'Russo One';font-size:clamp(30px,4vw,46px);line-height:.95;letter-spacing:2px;text-shadow:4px 4px 0 #000}
+.logo em{font-style:normal;color:var(--yellow)}
+.logo small{display:block;font-family:'Oswald';font-weight:600;font-size:10px;letter-spacing:7px;color:var(--dim);margin-top:6px}
+.logo .stripe{display:block;width:130px;height:7px;margin-top:8px;border:1px solid #000;
+  background:repeating-linear-gradient(-45deg,var(--yellow) 0 9px,#111 9px 18px)}
+.bal{margin-left:auto;border:3px solid #000;background:linear-gradient(180deg,#232323,#191919);
+  box-shadow:var(--hs);padding:9px 20px 11px;min-width:195px}
+.bal .lbl{font-size:9px;letter-spacing:5px;color:var(--dim);margin-bottom:3px}
+.bal .num{font-family:'JetBrains Mono';font-weight:800;font-size:clamp(20px,2.4vw,28px);color:var(--green);
+  text-shadow:0 0 14px rgba(53,224,122,.35);line-height:1}
+.bal .num i{font-style:normal;font-size:.55em;color:var(--dim);margin-left:4px}
+.bal.flash-win{animation:balw .7s}
+.bal.flash-lose{animation:ball .7s}
+@keyframes balw{0%{box-shadow:0 0 0 5px var(--green),var(--hs)}100%{box-shadow:var(--hs)}}
+@keyframes ball{0%{box-shadow:0 0 0 5px var(--red),var(--hs)}100%{box-shadow:var(--hs)}}
+
+/* ── кнопки / чипы ── */
+.btn{--c:var(--yellow);position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:'Russo One';font-size:14px;letter-spacing:1px;text-transform:uppercase;color:#111;background:var(--c);
+  border:3px solid #000;padding:12px 22px;cursor:pointer;box-shadow:5px 5px 0 #000;transform:skewX(-6deg);
+  transition:transform .12s,box-shadow .12s,filter .12s;user-select:none}
+.btn>span{display:inline-block;transform:skewX(6deg)}
+.btn:hover{transform:skewX(-6deg) translate(-2px,-2px);box-shadow:8px 8px 0 #000;filter:brightness(1.08)}
+.btn:active{transform:skewX(-6deg) translate(3px,3px);box-shadow:1px 1px 0 #000}
+.btn:disabled{filter:grayscale(.85) brightness(.55);cursor:not-allowed;transform:skewX(-6deg);box-shadow:3px 3px 0 #000}
+.btn.red{--c:var(--red);color:#fff}
+.btn.green{--c:var(--green)}
+.btn.ghost{--c:#242424;color:var(--paper)}
+.btn.sm{padding:8px 14px;font-size:12px}
+.chip{font-family:'JetBrains Mono';font-weight:700;font-size:12px;background:#2a2a2a;color:var(--paper);
+  border:2px solid #000;box-shadow:3px 3px 0 #000;padding:8px 10px;cursor:pointer;transform:skewX(-6deg);transition:.12s}
+.chip:hover{background:var(--yellow);color:#111;transform:skewX(-6deg) translate(-1px,-1px);box-shadow:4px 4px 0 #000}
+.chip:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(1);transform:skewX(-6deg)}
+.icon-btn{background:#242424;border:3px solid #000;box-shadow:4px 4px 0 #000;font-size:18px;width:46px;height:46px;
+  cursor:pointer;transition:.12s;color:var(--paper)}
+.icon-btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #000}
+.icon-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
+.linklike{background:none;border:none;color:var(--red);font-family:'Oswald';font-size:12px;letter-spacing:1px;cursor:pointer;text-decoration:underline}
+
+/* ── навигация ── */
+nav{position:relative;z-index:3;display:flex;background:#101010;border-bottom:3px solid #000}
+.tab{flex:1;text-align:center;padding:15px 10px;font-family:'Russo One';font-size:14px;letter-spacing:2px;
+  color:var(--dim);cursor:pointer;border-right:2px solid #000;position:relative;transition:.15s;background:#141414}
+.tab:last-child{border-right:none}
+.tab:hover{color:var(--paper);background:#1b1b1b}
+.tab.on{color:#111;background:var(--yellow)}
+.tab .cnt{font-family:'JetBrains Mono';font-size:11px;background:#000;color:var(--yellow);padding:2px 7px;margin-left:6px}
+
+/* ── каркас ── */
+main{position:relative;z-index:2;max-width:1240px;margin:0 auto;padding:34px 24px 80px}
+.view{display:none}
+.view.on{display:block}
+.h-title{display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;margin-bottom:26px}
+.h-title h2{font-family:'Russo One';font-size:clamp(30px,4.5vw,46px);letter-spacing:2px;line-height:1;
+  text-shadow:3px 3px 0 #000;position:relative;padding-bottom:14px}
+.h-title h2::after{content:'';position:absolute;left:0;bottom:0;width:100%;height:8px;
+  background:repeating-linear-gradient(-45deg,var(--yellow) 0 12px,transparent 12px 24px)}
+.h-sub{color:var(--dim);font-size:14px;max-width:400px;line-height:1.45}
+.k{font-size:11px;letter-spacing:3px;color:var(--dim)}
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .5s,transform .5s}
+.reveal.in{opacity:1;transform:none}
+
+/* ── лобби ── */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:30px}
+.stat{border:2px solid #000;background:var(--panel);padding:12px 16px;box-shadow:4px 4px 0 #000;display:flex;flex-direction:column;gap:3px}
+.stat .v{font-family:'JetBrains Mono';font-weight:800;font-size:22px;color:var(--yellow)}
+.stat .kk{font-size:10px;letter-spacing:3px;color:var(--dim)}
+.games{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+.story-panel{position:relative;overflow:hidden;border:3px solid #000;background:linear-gradient(125deg,#252525,#151515);box-shadow:var(--hs);padding:22px 24px;margin-bottom:28px}
+.story-panel::after{content:'ДЕЛО';position:absolute;right:-12px;bottom:-28px;font:64px 'Russo One';color:transparent;-webkit-text-stroke:2px rgba(255,198,26,.12);transform:rotate(-7deg)}
+.story-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;position:relative;z-index:1}.chapter-name{font:24px 'Russo One';color:var(--yellow);margin:5px 0 7px}.story-text{max-width:720px;color:#bbb;line-height:1.5}
+.rep{min-width:160px;text-align:right}.rep b{display:block;font:800 26px 'JetBrains Mono';color:var(--cyan)}
+.repbar{height:10px;background:#090909;border:2px solid #000;margin-top:14px;position:relative;z-index:1}.repbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--yellow));transition:width .5s}
+.story-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;position:relative;z-index:1}.episode-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}.episode{border:3px solid #000;background:#1d1d1d;box-shadow:5px 5px 0 #000;padding:18px}.episode.locked{opacity:.45;filter:grayscale(1)}.episode .eno{font:800 11px 'JetBrains Mono';color:var(--cyan)}.episode h3{font:18px 'Russo One';margin:7px 0}.episode p{font-size:13px;color:var(--dim);line-height:1.45;min-height:55px}
+.dialog-overlay{display:none;position:fixed;z-index:10000;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}.dialog-overlay.on{display:flex}.dialog-box{width:min(760px,100%);border:4px solid #000;background:linear-gradient(145deg,#252525,#151515);box-shadow:12px 12px 0 #000;padding:24px;position:relative}.dialog-head{display:flex;justify-content:space-between;gap:20px;border-bottom:2px dashed #444;padding-bottom:13px;margin-bottom:18px}.speaker{font:24px 'Russo One';color:var(--yellow)}.speaker-role{font-size:10px;letter-spacing:3px;color:var(--dim)}.dialog-text{font-size:20px;line-height:1.55;min-height:125px}.dialog-controls{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}.choice-list{display:grid;gap:10px;margin-top:16px}.choice-list .btn{width:100%;text-align:left}.portrait{font-size:48px;filter:drop-shadow(4px 4px 0 #000)}
+.quest-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.quest{border:3px solid #000;background:linear-gradient(150deg,#242424,#171717);box-shadow:5px 5px 0 #000;padding:18px;display:flex;flex-direction:column;gap:10px}.quest.done{box-shadow:5px 5px 0 #000,inset 0 0 0 3px var(--green)}.quest.claimed{opacity:.62}.quest h3{font:17px 'Russo One'}.quest p{color:var(--dim);font-size:13px;line-height:1.4}.qprog{height:12px;border:2px solid #000;background:#0d0d0d}.qprog i{display:block;height:100%;background:var(--yellow)}.qmeta{display:flex;justify-content:space-between;font:700 12px 'JetBrains Mono';color:var(--dim)}
+.gcard{position:relative;border:3px solid #000;background:linear-gradient(160deg,#232323,#1a1a1a);
+  box-shadow:var(--hs);padding:24px 20px 18px;cursor:pointer;overflow:hidden;transition:transform .18s,box-shadow .18s;
+  display:flex;flex-direction:column;gap:10px;min-height:215px;color:var(--paper);font:inherit;text-align:left;width:100%}
+.gcard::before{content:'';position:absolute;top:0;left:0;right:0;height:8px;
+  background:repeating-linear-gradient(-45deg,var(--ac) 0 12px,#111 12px 24px)}
+.gcard .num{position:absolute;top:16px;right:14px;font-family:'Russo One';font-size:58px;color:transparent;
+  -webkit-text-stroke:2px var(--ac);opacity:.5;line-height:1}
+.gcard h3{font-family:'Russo One';font-size:26px;letter-spacing:1px;text-shadow:2px 2px 0 #000}
+.gcard p{color:var(--dim);font-size:14px;line-height:1.45;flex:1}
+.gcard .pay{font-family:'JetBrains Mono';font-size:12px;color:var(--ac);letter-spacing:1px}
+.gcard .play{align-self:flex-start;font-family:'Russo One';font-size:13px;letter-spacing:1px;color:#111;
+  background:var(--ac);border:2px solid #000;padding:8px 16px;box-shadow:3px 3px 0 #000;transition:.15s}
+.gcard:hover{transform:translate(-3px,-3px);box-shadow:10px 10px 0 #000}
+.gcard:hover .play{transform:translateX(6px)}
+.gcard:active{transform:translate(2px,2px);box-shadow:2px 2px 0 #000}
+.gcard.locked{opacity:.5;filter:grayscale(1);cursor:not-allowed}.gcard.locked:hover{transform:none;box-shadow:var(--hs)}
+.sp3{grid-column:span 3}.sp4{grid-column:span 4}.sp6{grid-column:span 6}
+
+/* ── игра ── */
+.game-head{display:flex;align-items:center;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.game-head h2{font-family:'Russo One';font-size:clamp(24px,3.5vw,36px);letter-spacing:2px;display:flex;align-items:center;gap:14px}
+.accbar{display:inline-block;width:14px;height:30px;background:var(--yellow);border:2px solid #000;transform:skewX(-10deg)}
+.game-head .rule{margin-left:auto;font-size:13px;color:var(--dim);max-width:340px;line-height:1.45;
+  border-left:3px solid var(--yellow);padding-left:12px}
+.game-box{border:3px solid #000;background:linear-gradient(180deg,#202020,#191919);box-shadow:var(--hs);padding:26px}
+.betbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:2px dashed #3a3a3a}
+.betbar .betval{font-family:'JetBrains Mono';font-weight:800;font-size:22px;color:var(--yellow);min-width:110px}
+.betbar .minnote{font-size:10px;color:#555;letter-spacing:1px;margin-left:auto}
+.bet-input{width:130px;background:#101010;color:var(--paper);border:2px solid #000;box-shadow:3px 3px 0 #000;padding:8px 10px;font:700 14px 'JetBrains Mono'}.bet-input:focus{outline:2px solid var(--cyan)}
+.res{margin-top:18px;font-family:'Russo One';font-size:18px;letter-spacing:1px;padding:11px 16px;
+  border:2px solid #000;box-shadow:4px 4px 0 #000;display:none}
+.res.on{display:block;animation:pop .3s}
+.res.win{background:var(--green);color:#0c2015}
+.res.lose{background:var(--red);color:#fff}
+.res.push{background:#555;color:#eee}
+@keyframes pop{0%{transform:scale(.9)}60%{transform:scale(1.03)}100%{transform:scale(1)}}
+
+/* слоты */
+.reels{display:flex;gap:12px;justify-content:center;padding:22px;background:#101010;
+  border:3px solid #000;box-shadow:inset 0 0 0 3px #2c2c2c,inset 0 14px 30px rgba(0,0,0,.7)}
+.reel{width:110px;height:130px;background:linear-gradient(180deg,#0d0d0d,#1a1a1a 30%,#1a1a1a 70%,#0d0d0d);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid #000;position:relative}
+.reel::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,.7),transparent 30%,transparent 70%,rgba(0,0,0,.7))}
+.reel .sym{font-size:58px;line-height:1;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+.reel .sym.seven{font-family:'Russo One';color:var(--yellow);font-size:66px;text-shadow:0 0 18px rgba(255,198,26,.5)}
+.reel .sym.bar{font-family:'Russo One';font-size:24px;color:var(--paper);background:#333;border:2px solid #000;padding:8px 10px}
+.reel.spin .sym{animation:reelspin .12s infinite}
+@keyframes reelspin{50%{transform:translateY(-7px);opacity:.65}}
+.reel.hit{animation:reelhit .55s}
+@keyframes reelhit{50%{box-shadow:inset 0 0 0 5px var(--yellow)}}
+
+/* блэкджек */
+.tableside{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.hand{flex:1;min-width:260px}
+.hand .hname{display:flex;justify-content:space-between;align-items:center;font-family:'Russo One';font-size:14px;
+  letter-spacing:2px;color:var(--dim);margin-bottom:12px}
+.hand .score{font-family:'JetBrains Mono';font-size:13px;color:var(--paper);background:#000;border:2px solid #333;padding:3px 10px}
+.cards{display:flex;min-height:96px}
+.card{width:64px;height:92px;background:#e9e3d5;color:#111;border:2px solid #000;box-shadow:3px 3px 0 rgba(0,0,0,.6);
+  margin-left:-18px;position:relative;display:flex;flex-direction:column;padding:6px;font-family:'Russo One'}
+.card:first-child{margin-left:0}
+.card .cr{font-size:20px;line-height:1}
+.card .cs{font-size:30px;margin-top:auto;text-align:center}
+.card.red{color:#c22}
+.card.back{background:repeating-linear-gradient(-45deg,#2a2a2a 0 8px,#1d1d1d 8px 16px)}
+.card.back .cr,.card.back .cs{display:none}
+.card.anim{animation:dealin .35s backwards}
+@keyframes dealin{from{transform:translateX(46px) rotate(8deg);opacity:0}}
+.card.reveal{animation:flipin .4s}
+@keyframes flipin{0%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
+.poker-hand{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:18px}.poker-card{width:92px;height:132px;margin:0;cursor:pointer;transition:.15s}.poker-card.held{transform:translateY(-12px);box-shadow:0 0 0 4px var(--yellow),5px 8px 0 #000}.poker-card .hold{margin-top:auto;text-align:center;font:700 9px 'JetBrains Mono';color:#666}.poker-card.held .hold{color:#b07b00}
+.cups-row{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:560px;margin:15px auto;padding:28px 0;overflow:hidden}.cup-choice{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;position:relative;left:0;top:0;z-index:1;min-width:0;min-height:132px;padding:12px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:left .42s cubic-bezier(.75,0,.25,1),top .42s cubic-bezier(.75,0,.25,1),filter .2s;will-change:left,top}.cup-choice.swapping{z-index:2}.cup-choice .cup-body{position:relative;top:0;font-size:54px;line-height:1;transition:top .18s cubic-bezier(.2,.8,.2,1)}.cup-choice .cup-ball{height:24px;font-size:26px;line-height:24px;filter:drop-shadow(0 2px 3px #000);opacity:0;transform:translateY(-5px);transition:opacity .18s,transform .18s}.cup-choice.peek .cup-body{top:-22px;transition:none}.cup-choice.ball-shown .cup-ball,.cup-choice.revealed .cup-ball{opacity:1;transform:none;transition:none}.cup-choice.revealed{outline:3px solid var(--yellow);outline-offset:-5px}
+
+/* рулетка */
+.roulette-wrap{display:flex;gap:30px;flex-wrap:wrap;align-items:center}
+.wheelbox{position:relative;width:min(320px,80vw);aspect-ratio:1;margin:auto}
+.wheel{position:absolute;inset:0;border-radius:50%;border:6px solid #000;
+  box-shadow:0 0 0 4px #333,8px 8px 0 rgba(0,0,0,.7);will-change:transform}
+.wheel .seg{position:absolute;inset:0;transform:rotate(var(--a))}
+.wheel .seg b{position:absolute;top:10px;left:50%;transform:translateX(-50%);font:700 10px 'JetBrains Mono'}
+.pointer{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;z-index:2;
+  border-left:14px solid transparent;border-right:14px solid transparent;border-top:22px solid var(--yellow);
+  filter:drop-shadow(0 3px 0 #000)}
+.hub{position:absolute;inset:32%;border-radius:50%;background:#151515;border:4px solid #000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:inset 0 0 20px #000;z-index:1}
+.hub .rnum{font-family:'Russo One';font-size:34px;color:var(--paper)}
+.hub .rcol{font-size:9px;letter-spacing:2px;color:var(--dim)}
+.rbets{display:flex;flex-direction:column;gap:10px;flex:1;min-width:230px}
+.rbet{display:flex;justify-content:space-between;align-items:center;border:2px solid #000;padding:12px 14px;cursor:pointer;
+  font-family:'Russo One';letter-spacing:1px;background:#262626;color:var(--paper);box-shadow:3px 3px 0 #000;
+  transition:.12s;text-transform:uppercase;font-size:14px}
+.rbet .m{font-family:'JetBrains Mono';font-size:12px;color:var(--dim)}
+.rbet:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 #000}
+.rbet.on{outline:3px solid var(--yellow)}
+.rbet:disabled{opacity:.48;cursor:not-allowed;filter:grayscale(.8);transform:none;box-shadow:2px 2px 0 #000}
+.rbet.black{background:#191919}
+.rbet.red{background:#7e1a12}
+.rbet.green{background:#14522b}
+
+/* крэш */
+.mult{font-family:'JetBrains Mono';font-weight:800;font-size:clamp(40px,7vw,72px);text-align:center;color:var(--green);
+  text-shadow:0 0 24px rgba(53,224,122,.4);transition:color .2s;line-height:1.1;margin-bottom:14px}
+.mult.hot{color:var(--yellow);text-shadow:0 0 24px rgba(255,198,26,.45)}
+.mult.crash{color:var(--red);text-shadow:0 0 24px rgba(232,51,31,.55);animation:multshake .4s}
+@keyframes multshake{25%{transform:translateX(-8px)}50%{transform:translateX(7px)}75%{transform:translateX(-4px)}}
+#crashCanvas{width:100%;display:block;background:#101010;border:3px solid #000;box-shadow:inset 0 0 40px rgba(0,0,0,.8)}
+.crash-hist{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;min-height:26px}
+.crash-hist span{font-family:'JetBrains Mono';font-size:11px;font-weight:700;padding:3px 8px;border:2px solid #000;box-shadow:2px 2px 0 #000}
+
+/* кости */
+.dice-row{display:flex;gap:40px;justify-content:center;padding:26px 10px}
+.die{width:110px;height:110px;background:#e9e3d5;border:3px solid #000;box-shadow:6px 6px 0 #000;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:15px;gap:4px}
+.die .p{width:16px;height:16px;background:#111;border-radius:50%;align-self:center;justify-self:center;opacity:0;transition:opacity .08s}
+.die .p.on{opacity:1}
+.die.rolling{animation:dieroll .45s infinite}
+@keyframes dieroll{25%{transform:translateY(-11px) rotate(9deg)}75%{transform:translateY(5px) rotate(-7deg)}}
+
+/* мины */
+.mines{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;max-width:470px;margin:0 auto}
+.tile{aspect-ratio:1;background:linear-gradient(160deg,#2e2e2e,#1f1f1f);border:2px solid #000;box-shadow:3px 3px 0 #000;
+  display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:.1s;user-select:none}
+.tile:hover:not(.open){transform:translate(-2px,-2px);box-shadow:5px 5px 0 #000;background:#3a3a3a}
+.tile.open{cursor:default;animation:tileopen .25s}
+.tile.safe{background:#143322;box-shadow:inset 0 0 0 2px var(--green)}
+.tile.mine{background:#3a120c;box-shadow:inset 0 0 0 2px var(--red);animation:tileboom .45s}
+@keyframes tileopen{from{transform:scale(.8)}}
+@keyframes tileboom{30%{transform:scale(1.18) rotate(7deg)}}
+
+/* ── магазин ── */
+.tier{margin-bottom:36px}
+.tier h3{font-family:'Russo One';font-size:18px;letter-spacing:3px;color:var(--dim);margin-bottom:16px;
+  display:flex;align-items:center;gap:14px;text-transform:uppercase}
+.tier h3::after{content:'';flex:1;height:6px;opacity:.4;
+  background:repeating-linear-gradient(-45deg,var(--yellow) 0 10px,transparent 10px 20px)}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:16px}
+.item{border:3px solid #000;background:linear-gradient(165deg,#242424,#1a1a1a);box-shadow:5px 5px 0 #000;
+  padding:18px 16px;display:flex;flex-direction:column;gap:8px;position:relative;transition:transform .15s,box-shadow .15s}
+.item:hover{transform:translate(-3px,-3px);box-shadow:8px 8px 0 #000}
+.item .ico{font-size:52px;filter:drop-shadow(4px 4px 0 rgba(0,0,0,.5));transition:transform .2s}
+.item:hover .ico{transform:scale(1.12) rotate(-5deg)}
+.item h4{font-family:'Russo One';font-size:16px;letter-spacing:.5px}
+.item .desc{font-size:12px;color:var(--dim);line-height:1.45;flex:1}
+.item .price{font-family:'JetBrains Mono';font-weight:800;color:var(--yellow);font-size:18px}
+.item .owned-badge{position:absolute;top:10px;right:10px;background:var(--green);color:#0c2015;font-family:'Russo One';
+  font-size:10px;padding:4px 8px;border:2px solid #000;display:none;transform:skewX(-6deg)}
+.item.owned .owned-badge{display:block}
+.item.owned{opacity:.85}
+.item.owned .ico{filter:drop-shadow(0 0 12px rgba(53,224,122,.5))}
+.skill-badge{display:inline-flex;align-self:flex-start;background:var(--cyan);color:#07171b;border:2px solid #000;padding:4px 8px;font:700 10px 'JetBrains Mono';letter-spacing:1px}.item.skill-item{box-shadow:5px 5px 0 #000,inset 0 0 0 2px var(--cyan)}
+.effect-list{display:grid;gap:8px;margin-top:14px}.effect-row{border-left:4px solid var(--cyan);background:#171717;padding:9px 12px;font-size:13px;color:#bbb}.effect-row.bad{border-color:var(--red)}
+
+/* ── трофеи ── */
+.trophy-head{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;border:3px solid #000;
+  background:linear-gradient(160deg,#242424,#191919);box-shadow:var(--hs);padding:20px 24px;margin-bottom:18px}
+.rk-label{font-size:10px;letter-spacing:4px;color:var(--dim)}
+.rk-name{font-family:'Russo One';font-size:clamp(22px,3.5vw,34px);color:var(--yellow);text-shadow:2px 2px 0 #000}
+.trophy-nums{display:flex;gap:30px}
+.trophy-nums .v{display:block;font-family:'JetBrains Mono';font-weight:800;font-size:24px}
+.trophy-nums .kk{font-size:10px;letter-spacing:3px;color:var(--dim)}
+.progress{height:18px;border:2px solid #000;background:#111;box-shadow:inset 0 0 8px #000;margin-bottom:22px}
+.progress i{display:block;height:100%;transition:width .6s;
+  background:repeating-linear-gradient(-45deg,var(--yellow) 0 10px,#e0a800 10px 20px);animation:railmove 1s linear infinite}
+.trophy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px}
+.trophy{border:3px solid #000;background:#1d1d1d;box-shadow:4px 4px 0 #000;padding:16px;
+  display:flex;flex-direction:column;gap:6px;align-items:flex-start;transition:transform .15s,box-shadow .15s}
+.trophy:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #000}
+.trophy .ico{font-size:44px}
+.trophy h4{font-family:'Russo One';font-size:14px}
+.trophy .price{font-family:'JetBrains Mono';color:var(--yellow);font-size:13px}
+.trophy.locked{opacity:.3;filter:grayscale(1)}
+.trophy.locked .ico{filter:blur(2px)}
+
+/* ── аккаунт и рейтинг ── */
+.account-layout{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.2fr);gap:22px;align-items:start}
+.account-panel{border:3px solid #000;background:linear-gradient(160deg,#242424,#191919);box-shadow:var(--hs);padding:22px}
+.account-panel h3{font:20px 'Russo One';color:var(--yellow);margin-bottom:14px}
+.account-panel p,.account-note{color:var(--dim);font-size:13px;line-height:1.5}
+.account-form{display:grid;gap:12px;margin-top:18px}
+.account-form label{display:grid;gap:5px;color:var(--dim);font-size:11px;letter-spacing:2px}
+.account-form input{width:100%;background:#101010;color:var(--paper);border:2px solid #000;padding:11px 12px;font:14px 'JetBrains Mono';box-shadow:3px 3px 0 #000}
+.account-form input:focus{outline:2px solid var(--cyan)}
+.account-actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.account-status{min-height:22px;color:var(--cyan);font-size:13px}
+.account-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.account-stats .stat{padding:10px}
+.leaderboard-wrap{overflow:auto;border:2px solid #000;background:#181818}
+.leaderboard{width:100%;border-collapse:collapse;min-width:500px;text-align:left}
+.leaderboard th,.leaderboard td{padding:12px 14px;border-bottom:1px solid #333}
+.leaderboard th{font:11px 'JetBrains Mono';letter-spacing:1px;color:var(--dim);background:#101010}
+.leaderboard td{font:14px 'JetBrains Mono'}
+.leaderboard tr:last-child td{border-bottom:0}
+.leaderboard .place{font-family:'Russo One';color:var(--yellow)}
+.leaderboard-empty{text-align:center;color:var(--dim);padding:28px}
+@media(max-width:760px){.account-layout{grid-template-columns:1fr}.account-stats{grid-template-columns:1fr}}
+
+/* ── эффекты ── */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:80}
+.float-money{position:fixed;font-family:'JetBrains Mono';font-weight:800;font-size:20px;z-index:81;
+  pointer-events:none;text-shadow:2px 2px 0 #000;animation:floatup 1.1s forwards}
+@keyframes floatup{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-70px);opacity:0}}
+.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);background:var(--yellow);color:#111;
+  font-family:'Russo One';padding:12px 22px;border:3px solid #000;box-shadow:5px 5px 0 #000;opacity:0;
+  transition:.3s;z-index:82;letter-spacing:1px;max-width:90vw;text-align:center}
+.toast.in{opacity:1;transform:translate(-50%,0)}
+#jackpot{position:fixed;top:50%;left:0;right:0;transform:translateY(-50%) skewY(-3deg);background:var(--yellow);color:#111;
+  font-family:'Russo One';font-size:clamp(22px,5vw,46px);text-align:center;padding:18px;z-index:85;display:none;
+  letter-spacing:2px;border-top:4px solid #000;border-bottom:4px solid #000;box-shadow:0 10px 0 rgba(0,0,0,.5)}
+#jackpot.on{display:block;animation:jack 2.4s forwards}
+@keyframes jack{0%{transform:translateY(-50%) skewY(-3deg) translateX(-110%)}
+  15%{transform:translateY(-50%) skewY(-3deg) translateX(0)}
+  85%{transform:translateY(-50%) skewY(-3deg) translateX(0)}
+  100%{transform:translateY(-50%) skewY(-3deg) translateX(110%)}}
+
+footer{position:relative;z-index:2;border-top:3px solid #000;background:#101010;padding:24px;
+  display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  color:var(--dim);font-size:12px;letter-spacing:1px}
+
+@media(max-width:1000px){.sp3,.sp4,.sp6{grid-column:span 6}}
+@media(max-width:640px){
+  .sp3,.sp4,.sp6{grid-column:span 12}
+  .stats{grid-template-columns:1fr}
+  .bal{margin-left:0;width:100%}
+  .game-head .rule{margin-left:0;max-width:none}
+  .reel{width:88px;height:110px}
+  .reel .sym{font-size:46px}
+  .reel .sym.seven{font-size:52px}
+  .die{width:88px;height:88px;padding:12px}
+  .game-box{padding:16px}
+  nav{overflow-x:auto}.tab{min-width:125px;white-space:nowrap}
+  .dice-row{gap:18px}.reels{gap:7px;padding:14px 8px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.cup-shuffle{animation:cupShuffle .14s cubic-bezier(.75,0,.25,1) 8}.cup-shuffle:nth-child(2){animation-direction:reverse}@keyframes cupShuffle{25%{transform:translate(14px,-12px) rotate(10deg)}75%{transform:translate(-14px,-6px) rotate(-10deg)}}
+#balNum{overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<div class="rail top"></div>
+<div class="rail bot"></div>
+<div id="wm">БЕТОН</div>
+
+<div id="app">
+  <div id="ticker"><div class="track" id="tickerTrack"></div></div>
+
+  <header>
+    <div class="logo">БЕТ<em>О</em>Н<small>ЖЁСТКОЕ КАЗИНО</small><span class="stripe"></span></div>
+    <div class="bal" id="bal">
+      <div class="lbl">БАЛАНС</div>
+      <div class="num"><b id="balNum">0</b><i>₽</i></div>
+    </div>
+    <button class="btn sm" id="refill" title="Доступно при балансе не выше 500 ₽"><span>АВАРИЙНЫЙ РЕЗЕРВ</span></button>
+    <button class="icon-btn" id="sndBtn" title="Звук">🔊</button>
+  </header>
+
+  <nav>
+    <div class="tab on" data-view="lobby">ЛОББИ</div>
+    <div class="tab" data-view="story">ИСТОРИЯ <span class="cnt" id="storyCnt">0/16</span></div>
+    <div class="tab" data-view="quests">ЗАДАНИЯ <span class="cnt" id="questCnt">0/6</span></div>
+    <div class="tab" data-view="shop">МАГАЗИН <span class="cnt" id="shopCnt">0/13</span></div>
+    <div class="tab" data-view="trophies">ТРОФЕИ</div>
+    <div class="tab" data-view="rating">РЕЙТИНГ</div>
+    <div class="tab" data-view="account">КАБИНЕТ</div>
+  </nav>
+
+  <main>
+    <section class="view on" id="view-lobby">
+      <div class="h-title reveal">
+        <h2>ИГРОВОЙ ЗАЛ</h2>
+        <span class="h-sub">Шесть столов, бетонный пол, виртуальные деньги. Азарт — по-настоящему. Выбирай стол и лезь.</span>
+      </div>
+      <div class="stats reveal">
+        <div class="stat"><span class="v" id="stWager">0</span><span class="kk">ПОВЕРЖЕНО В БОЙ, ₽</span></div>
+        <div class="stat"><span class="v" id="stWon">0</span><span class="kk">ВЫБИТО, ₽</span></div>
+        <div class="stat"><span class="v" id="stBig">—</span><span class="kk">КРУПНЕЙШИЙ КУШ</span></div>
+      </div>
+      <div class="story-panel reveal" id="storyPanel"></div>
+      <div class="games" id="gamesGrid"></div>
+    </section>
+
+    <section class="view" id="view-story">
+      <div class="h-title reveal"><h2>ИСТОРИЯ</h2><span class="h-sub">Знакомства, решения и разговоры, из которых складывается твоя бетонная империя.</span></div>
+      <div class="episode-grid" id="episodeGrid"></div>
+    </section>
+
+    <section class="view" id="view-quests">
+      <div class="h-title reveal"><h2>ЗАДАНИЯ</h2><span class="h-sub">Выполняй поручения, забирай награды и открывай новые главы истории.</span></div>
+      <div class="quest-grid" id="questGrid"></div>
+    </section>
+
+    <section class="view" id="view-game">
+      <div class="game-head reveal">
+        <button class="btn sm ghost" id="backBtn"><span>← ЗАЛ</span></button>
+        <h2><span class="accbar" id="gameAcc"></span><span id="gameTitle"></span></h2>
+        <p class="rule" id="gameRule"></p>
+      </div>
+      <div class="game-box reveal" id="gameBody"></div>
+    </section>
+
+    <section class="view" id="view-shop">
+      <div class="h-title reveal">
+        <h2>МАГАЗИН</h2>
+        <span class="h-sub">От ручки до яхты. Всё честно — сколько выбил, то и купил.</span>
+      </div>
+      <div id="shopGrid"></div>
+    </section>
+
+    <section class="view" id="view-trophies">
+      <div class="h-title reveal">
+        <h2>ТРОФЕИ</h2>
+        <span class="h-sub">Твой железный запас. Коллекция — биография.</span>
+      </div>
+      <div id="trophyWrap"></div>
+    </section>
+
+    <section class="view" id="view-rating">
+      <div class="h-title reveal"><h2>РЕЙТИНГ</h2><span class="h-sub">Общий список игроков по сумме выигранных виртуальных рублей.</span></div>
+      <div class="account-panel reveal">
+        <div class="story-top"><div><h3>ТАБЛИЦА ИГРОКОВ</h3><p id="ratingStatus">Загрузка рейтинга...</p></div><button class="btn sm" id="refreshRating" type="button"><span>ОБНОВИТЬ</span></button></div>
+        <div class="leaderboard-wrap" style="margin-top:18px"><table class="leaderboard"><thead><tr><th>МЕСТО</th><th>ИГРОК</th><th>ВЫИГРЫШИ</th><th>ИГРЫ</th></tr></thead><tbody id="leaderboardRows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-account">
+      <div class="h-title reveal"><h2>ЛИЧНЫЙ КАБИНЕТ</h2><span class="h-sub">Аккаунт и игровая статистика.</span></div>
+      <div class="account-layout">
+        <div class="account-panel reveal" id="accountPanel"></div>
+        <div class="account-panel reveal"><h3>ТВОЯ СТАТИСТИКА</h3><p>После входа показатели загружаются из базы сайта и сохраняются между устройствами.</p>
+          <div class="account-stats"><div class="stat"><span class="v" id="accountWon">0 ₽</span><span class="kk">ВЫИГРЫШИ</span></div><div class="stat"><span class="v" id="accountPlays">0</span><span class="kk">ИГРЫ</span></div><div class="stat"><span class="v" id="accountBig">—</span><span class="kk">КРУПНЕЙШИЙ КУШ</span></div></div>
+          <p class="account-note">Очки виртуальные. Результаты раундов рассчитываются в браузере, поэтому рейтинг не подходит для денежных призов и проверяемых соревнований.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>БЕТОН: ПУТЬ НАВЕРХ · сюжетное виртуальное казино · версия 6.3</span>
+    <span>18+ · играй ответственно · <button class="linklike" id="resetBtn">снести прогресс</button></span>
+  </footer>
+</div>
+
+<div id="fx"></div>
+<div id="jackpot"></div>
+<div id="fatalError" role="alert" style="display:none;position:fixed;z-index:9999;left:16px;right:16px;bottom:16px;background:#e8331f;color:#fff;border:3px solid #000;box-shadow:6px 6px 0 #000;padding:14px 18px;font:700 14px 'JetBrains Mono',monospace"></div>
+<div class="dialog-overlay" id="dialogOverlay" role="dialog" aria-modal="true"><div class="dialog-box"><div class="dialog-head"><div><div class="speaker-role" id="dialogRole"></div><div class="speaker" id="dialogSpeaker"></div></div><div class="portrait" id="dialogPortrait"></div></div><div class="dialog-text" id="dialogText"></div><div class="choice-list" id="dialogChoices"></div><div class="dialog-controls" id="dialogControls"><button class="btn ghost" id="dialogClose"><span>ЗАКРЫТЬ</span></button><button class="btn green" id="dialogNext"><span>ДАЛЬШЕ →</span></button></div></div></div>
+
+<script>
+/* ══════════ утилиты ══════════ */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const money=n=>BigInt(typeof n==='number'?Math.round(n):n||0);
+const fmt=n=>money(n).toLocaleString('ru-RU');
+const moneyAbs=n=>money(n)<0n?-money(n):money(n);
+const stringifyMoney=value=>JSON.stringify(value,(_key,item)=>typeof item==='bigint'?item.toString():item);
+function moneyProduct(amount,factor){
+  const [whole,fraction='']=Number(factor).toFixed(12).split('.');
+  const divisor=10n**BigInt(fraction.length);
+  const numerator=BigInt(whole+fraction);
+  return (money(amount)*numerator+divisor/2n)/divisor;
+}
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const irnd=(a,b)=>Math.floor(rnd(a,b+1));
+const pick=a=>a[irnd(0,a.length-1)];
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const alive=n=>document.body.contains(n);
+function btn(text,cls='btn'){const b=el('button',cls);b.innerHTML='<span>'+text+'</span>';return b;}
+
+/* ══════════ состояние ══════════ */
+const LS='beton_casino_story_v61';
+let authSession=null,authMode='signup',stateReady=false,authReady=false;
+let pendingScoreEvent={plays:0,won:0,biggest_win:0};
+let stateSaveTimer=null,stateSavePending=false,stateSaveInFlight=null;
+function freshState(){return{balance:5000,owned:[],sound:true,reputation:0,claimed:[],storySeen:[],storyFlags:{},lastRefill:0,stats:{wagered:0,won:0,biggest:0,plays:0,wins:0,purchases:0},bets:{}};}
+function normalizeState(d){const base=freshState();
+  if(d&&(typeof d.balance==='number'&&Number.isFinite(d.balance)||typeof d.balance==='string'&&/^\d+$/.test(d.balance)))return{...base,...d,
+    balance:(money(d.balance)<0n?0n:money(d.balance)).toString(),owned:Array.isArray(d.owned)?d.owned:[],
+    reputation:Number.isFinite(d.reputation)?d.reputation:0,claimed:Array.isArray(d.claimed)?d.claimed:[],
+    storySeen:Array.isArray(d.storySeen)?d.storySeen:[],storyFlags:d.storyFlags&&typeof d.storyFlags==='object'?d.storyFlags:{},
+    lastRefill:Number.isFinite(d.lastRefill)?d.lastRefill:0,
+    stats:{...base.stats,...(d.stats||{})},bets:{...(d.bets||{})}};
+  return base;}
+function load(){try{return normalizeState(JSON.parse(localStorage.getItem(LS)));}catch(e){return freshState();}}
+let firstStoryLaunch=false;try{firstStoryLaunch=!localStorage.getItem(LS);}catch(e){}
+let S=load();
+function save(){try{localStorage.setItem(LS,stringifyMoney(S));}catch(e){}queueStateSave();}
+
+let balShown=S.balance;
+function countUp(node,from,to,dur=450){
+  if(typeof from==='string'||typeof to==='string'){node.textContent=fmt(to);return;}
+  const t0=performance.now();
+  (function step(t){const k=Math.min(1,(t-t0)/dur);
+    node.textContent=fmt(from+(to-from)*(1-Math.pow(1-k,3)));
+    if(k<1)requestAnimationFrame(step);})(t0);
+}
+function changeBalance(delta,snd){
+  if(authSession)return;
+  if(snd===undefined)snd=delta>0?(delta>=15000?'winBig':'win'):'lose';
+  const next=money(S.balance)+money(delta);S.balance=(next<0n?0n:next).toString();save();
+  countUp($('#balNum'),balShown,S.balance);balShown=S.balance;
+  const bal=$('#bal');bal.classList.remove('flash-win','flash-lose');void bal.offsetWidth;
+  bal.classList.add(delta>0?'flash-win':'flash-lose');
+  floatMoney(delta);
+  if(snd&&Snd[snd])Snd[snd]();
+  updateRefillButton();
+}
+const REFILL_COOLDOWN=10*60*1000;
+function refillWait(){const cooldown=S.storyFlags.careful?9*60*1000:REFILL_COOLDOWN;return Math.max(0,cooldown-(Date.now()-S.lastRefill));}
+function updateRefillButton(){const b=$('#refill');if(!b)return;const wait=refillWait();
+  if(S.balance>500){b.disabled=true;b.querySelector('span').textContent='РЕЗЕРВ ПРИ ≤ 500 ₽';}
+  else if(wait>0){b.disabled=true;b.querySelector('span').textContent='РЕЗЕРВ ЧЕРЕЗ '+Math.ceil(wait/60000)+' МИН';}
+  else{b.disabled=false;b.querySelector('span').textContent='ПОЛУЧИТЬ РЕЗЕРВ +5 000 ₽';}}
+function floatMoney(delta){
+  const r=$('#bal').getBoundingClientRect();
+  const f=el('div','float-money',(delta>0?'+':'−')+fmt(moneyAbs(delta))+' ₽');
+  f.style.color=delta>0?'var(--green)':'var(--red)';
+  f.style.left=(r.left+r.width/2-50)+'px';f.style.top=(r.bottom+6)+'px';
+  $('#fx').appendChild(f);setTimeout(()=>f.remove(),1200);
+}
+function recordWager(b){if(authSession)return;S.stats.wagered=(money(S.stats.wagered)+money(b)).toString();S.stats.plays++;save();updateProgressUI();}
+function recordWin(w){if(authSession)return;S.stats.won=(money(S.stats.won)+money(w)).toString();S.stats.wins++;
+  const repGain=Math.max(1,Math.min(5,Math.floor(Math.log10(Math.max(10,Number(w))))-1));
+  S.reputation+=repGain;if(money(w)>money(S.stats.biggest))S.stats.biggest=w;save();updateProgressUI();}
+function renderStats(){$('#stWager').textContent=fmt(S.stats.wagered);
+  $('#stWon').textContent=fmt(S.stats.won);
+  $('#stBig').textContent=S.stats.biggest?fmt(S.stats.biggest):'—';}
+function fail(res,msg){res.className='res on lose';res.textContent=msg;Snd.lose();}
+function shake(){const a=$('#app');a.classList.remove('shake');void a.offsetWidth;a.classList.add('shake');}
+function jackpot(win,text){
+  const j=$('#jackpot');j.textContent=text||('💥 ЖЁСТКИЙ КУШ +'+fmt(win)+' ₽');
+  j.classList.remove('on');void j.offsetWidth;j.classList.add('on');
+  Snd.winBig();shake();
+}
+function toast(text){
+  const t=el('div','toast',text);$('#fx').appendChild(t);
+  setTimeout(()=>t.classList.add('in'),10);
+  setTimeout(()=>{t.classList.remove('in');setTimeout(()=>t.remove(),400);},3200);
+}
+
+async function apiRequest(path,options={}){
+  const response=await fetch(path,{...options,credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})}});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(result.error||'Ошибка запроса ('+response.status+')');
+  return result;
+}
+function applyServerGameResult(result){
+  authSession=result.user;stateReady=true;applyServerState(result.state);renderAccount();
+}
+async function startServerGame(game,bet,choice,options){
+  const result=await apiRequest('/api/games/start',{method:'POST',body:stringifyMoney({game,bet,choice,options})});
+  applyServerGameResult(result);loadLeaderboard();return result;
+}
+async function actServerGame(roundId,action,data={}){
+  const result=await apiRequest('/api/games/action',{method:'POST',body:stringifyMoney({round_id:roundId,action,data})});
+  applyServerGameResult(result);loadLeaderboard();return result;
+}
+function queueStateSave(){
+  if(!authSession||!stateReady)return;
+  stateSavePending=true;clearTimeout(stateSaveTimer);
+  stateSaveTimer=setTimeout(flushStateSave,500);
+}
+async function flushStateSave(){
+  clearTimeout(stateSaveTimer);stateSaveTimer=null;
+  if(!authSession||!stateSavePending)return;
+  if(stateSaveInFlight){await stateSaveInFlight;if(stateSavePending)return flushStateSave();return;}
+  stateSavePending=false;
+  const snapshot=stringifyMoney(S);
+  stateSaveInFlight=apiRequest('/api/state',{method:'POST',body:stringifyMoney({state:JSON.parse(snapshot)})})
+    .catch(error=>{stateSavePending=true;setAccountStatus('Сохранение не синхронизировано: '+error.message);})
+    .finally(()=>{stateSaveInFlight=null;if(stateSavePending)stateSaveTimer=setTimeout(flushStateSave,1000);});
+  await stateSaveInFlight;
+}
+function applyServerState(state){
+  S=normalizeState(state);
+  try{localStorage.setItem(LS,stringifyMoney(S));}catch(e){}
+  refreshStateUI();
+}
+function refreshStateUI(){
+  balShown=S.balance;$('#balNum').textContent=fmt(S.balance);
+  renderLobby();renderShop();renderTrophies();renderStats();renderStory();renderStoryArchive();renderQuests();updateRefillButton();
+}
+function setAccountStatus(message){const status=$('#accountStatus');if(status)status.textContent=message;}
+function renderAccount(){
+  const panel=$('#accountPanel');if(!panel)return;
+  const stats=authSession||{total_won:0,plays:0,biggest_win:0};
+  $('#accountWon').textContent=fmt(stats.total_won)+' ₽';
+  $('#accountPlays').textContent=fmt(stats.plays);
+  $('#accountBig').textContent=stats.biggest_win?fmt(stats.biggest_win)+' ₽':'—';
+  if(authSession){
+    panel.innerHTML='<h3>АККАУНТ</h3><p id="accountUsername"></p><p id="accountEmail" class="account-note" style="margin-top:6px"></p><p class="account-status" id="accountStatus" style="margin-top:14px">Профиль хранится на сервере.</p><div class="account-actions"><button class="btn red sm" id="signOutBtn" type="button"><span>ВЫЙТИ</span></button></div>';
+    $('#accountUsername').textContent=authSession.username;
+    $('#accountEmail').textContent=authSession.email;
+    $('#signOutBtn').onclick=async()=>{
+      try{
+        await flushStateSave();await apiRequest('/api/auth/logout',{method:'POST',body:'{}'});
+        authSession=null;stateReady=false;S=freshState();save();refreshStateUI();renderAccount();loadLeaderboard();
+      }
+      catch(error){setAccountStatus(error.message);}
+    };
+    return;
+  }
+  panel.innerHTML='<h3>АККАУНТ ИГРОКА</h3><p>Войди или зарегистрируйся. Профиль и рейтинг хранятся на сервере сайта.</p><div class="account-actions"><button class="btn sm '+(authMode==='signup'?'':'ghost')+'" id="signupMode" type="button"><span>РЕГИСТРАЦИЯ</span></button><button class="btn sm '+(authMode==='signin'?'':'ghost')+'" id="signinMode" type="button"><span>ВХОД</span></button></div><form class="account-form" id="authForm" autocomplete="on">'+
+    (authMode==='signup'?'<label>ИГРОВОЕ ИМЯ<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-zА-Яа-яЁё0-9_]+" autocomplete="nickname" placeholder="например, beton_777"></label>':'')+
+    '<label>ЭЛЕКТРОННАЯ ПОЧТА<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label><label>ПАРОЛЬ<input name="password" type="password" required minlength="10" autocomplete="'+(authMode==='signup'?'new-password':'current-password')+'" placeholder="Не менее 10 символов"></label><button class="btn green" type="submit"><span>'+(authMode==='signup'?'СОЗДАТЬ АККАУНТ':'ВОЙТИ')+'</span></button></form><p class="account-status" id="accountStatus" role="status" aria-live="polite" style="margin-top:12px"></p>';
+  $('#signupMode').onclick=()=>{authMode='signup';renderAccount();};
+  $('#signinMode').onclick=()=>{authMode='signin';renderAccount();};
+  $('#authForm').onsubmit=async event=>{
+    event.preventDefault();const form=new FormData(event.currentTarget);
+    const email=String(form.get('email')).trim(),password=String(form.get('password'));
+    const submit=event.currentTarget.querySelector('[type="submit"]');submit.disabled=true;setAccountStatus('Подключаемся...');
+    try{
+      const path=authMode==='signup'?'/api/auth/register':'/api/auth/login';
+      const body={email,password};if(authMode==='signup')body.username=String(form.get('username')).trim();
+      const result=await apiRequest(path,{method:'POST',body:stringifyMoney(body)});
+      await activateAccount(result.user);
+    }catch(error){setAccountStatus(error.message);submit.disabled=false;}
+  };
+}
+async function activateAccount(user){
+  clearGame();
+  authSession=user;stateReady=false;renderAccount();
+  try{
+    const saved=await apiRequest('/api/state');stateReady=true;
+    if(saved.state)applyServerState(saved.state);else queueStateSave();
+    renderAccount();loadLeaderboard();authReady=true;
+  }catch(error){stateReady=false;renderAccount();setAccountStatus('Не удалось загрузить профиль: '+error.message);}
+}
+async function loadLeaderboard(){
+  const rows=$('#leaderboardRows'),status=$('#ratingStatus');if(!rows||!status)return;
+  rows.innerHTML='';
+  status.textContent='Загружаем таблицу...';
+  try{
+    const{players}=await apiRequest('/api/leaderboard');
+    status.textContent=players.length?'Игроков в таблице: '+players.length:'Пока нет игроков. Зарегистрируйся и сыграй первую игру.';
+    if(!players.length){rows.innerHTML='<tr><td class="leaderboard-empty" colspan="4">Таблица пока пуста</td></tr>';return;}
+    players.forEach((player,index)=>{
+      const row=document.createElement('tr');
+      [String(index+1),player.username,fmt(player.total_won)+' ₽',fmt(player.plays)].forEach((value,column)=>{
+        const cell=document.createElement('td');cell.textContent=value;if(column===0)cell.className='place';row.appendChild(cell);
+      });rows.appendChild(row);
+    });
+  }catch(error){status.textContent='Не удалось загрузить рейтинг: '+error.message;rows.innerHTML='<tr><td class="leaderboard-empty" colspan="4">Сервер временно недоступен</td></tr>';}
+}
+function initAccounts(){
+  $('#refreshRating').onclick=loadLeaderboard;
+  renderAccount();loadLeaderboard();
+  apiRequest('/api/auth/me').then(result=>result.user?activateAccount(result.user):(authReady=true)).catch(()=>{authReady=true;});
+}
+
+/* ══════════ звук ══════════ */
+const Snd={ctx:null,
+  ac(){if(!this.ctx){try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+    if(this.ctx&&this.ctx.state==='suspended')this.ctx.resume();return this.ctx;},
+  b(f,d,type='square',v=.05,delay=0,slide=0){
+    if(!S.sound)return;const c=this.ac();if(!c)return;
+    const t=c.currentTime+delay,o=c.createOscillator(),g=c.createGain();
+    o.type=type;o.frequency.setValueAtTime(f,t);
+    if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),t+d);
+    g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    o.connect(g).connect(c.destination);o.start(t);o.stop(t+d+.02);},
+  click(){this.b(300,.05,'square',.04);},
+  tick(){this.b(1400,.02,'square',.025);},
+  coin(){this.b(900,.07,'triangle',.06);this.b(1350,.1,'triangle',.05,.06);},
+  spin(){this.b(180,.09,'square',.04,0,140);},
+  win(){[523,659,784].forEach((f,i)=>this.b(f,.12,'square',.05,i*.09));},
+  winBig(){[392,523,659,784,1046,1318].forEach((f,i)=>this.b(f,.16,'square',.055,i*.09));this.b(2093,.4,'triangle',.05,.55);},
+  lose(){this.b(220,.3,'sawtooth',.05,0,-140);this.b(110,.35,'sawtooth',.04,.05,-60);},
+  boom(){this.b(80,.5,'sawtooth',.09,0,-40);this.b(60,.6,'square',.07,.05,-30);}};
+
+/* ══════════ бегущая строка ══════════ */
+const NAMES=['ПЕЧКА','БОГДАН_88','КЛЁШКА','СЕРЫЙ','ГРУЗЧИК_ВЛД','НЕФТЯНИК','ТУЗ_БЕЛЫЙ','ШОФЁР_ОМАР','ЛАБУХ','ДЯДЯ_СЛОТ','КРАСА_ЗАЛА','МОЛОТ'];
+function buildTicker(){
+  const items=[];
+  for(let i=0;i<12;i++)items.push('<span class="ti"><b>'+pick(NAMES)+'</b> вынес <span class="tw">+'+
+    fmt(irnd(4,98)*irnd(10,100))+' ₽</span> на «'+pick(Object.values(GAMES)).name+'»</span>');
+  const half=items.join('<span class="sep">▪</span>')+'<span class="sep">▪</span>';
+  $('#tickerTrack').innerHTML=half+half;
+}
+
+/* ══════════ реестр игр ══════════ */
+const GAMES={
+  slots:{name:'СЛОТЫ',ac:'#ffc61a',span:'sp4',tag:'Три «семёрки» — 50×. Классика, проверенная бетоном.',pay:'ДО 50×',
+    rule:'Ставишь — крутишь. Три одинаковых бьют по-полной, пара — полставки сверху.'},
+  blackjack:{name:'БЛЭКДЖЕК',ac:'#e8331f',span:'sp4',tag:'21 против дилера. Чёрный против чёрного.',pay:'3:2',
+    rule:'Собери 21 или перебей дилера, не переобрудовавшись. Блэкджек платит 3:2.'},
+  roulette:{name:'РУЛЕТКА',ac:'#35e07a',span:'sp4',tag:'Красное, чёрное, зелёный ноль. Колесо не прощает.',pay:'ДО 14×',
+    rule:'Европейская колбаса на 37 делений. Ноль — 14×, цвет и чётность — 2×.'},
+  crash:{name:'КРЭШ',ac:'#2ec5e0',span:'sp3',tag:'Мультипликатор летит вверх. Выбейся вовремя.',pay:'ДО 30×',
+    rule:'Вывод доступен с ×1,10. Иногда линия рушится мгновенно; чем выше множитель, тем опаснее.'},
+  dice:{name:'КОСТИ',ac:'#ff7a1a',span:'sp3',tag:'Два кубика, четыре ставки, ноль жалости.',pay:'ДО 5×',
+    rule:'Больше/меньше 7 — 2×, ровно 7 — 5×, пара — 2,5× (с калиброванными кубиками — 2,75×).'},
+  mines:{name:'МИНЫ',ac:'#b8e62e',span:'sp6',tag:'Поле 25 плит. Где-то под плитой — динамит.',pay:'ДО 50×+',
+    rule:'Открывай плитки, множитель растёт. «Вывести» — забрать. Мина — всё.'},
+  coinflip:{name:'ОРЁЛ И РЕШКА',ac:'#d9a7ff',span:'sp3',tag:'Один выбор. Один бросок. Чистые 2×.',pay:'2×',
+    rule:'Выбери сторону монеты. Угадал — получаешь двойную ставку.'},
+  highlow:{name:'ВЫШЕ / НИЖЕ',ac:'#61d4ff',span:'sp3',tag:'Цепочка карт. Риск растёт с каждым ходом.',pay:'ДО 20×',
+    rule:'Угадывай следующий ранг. Равенство проигрывает; чем сложнее переход, тем выше рост коэффициента. Забрать можно после успеха.'},
+  cups:{name:'НАПЁРСТКИ',ac:'#ff5db1',span:'sp3',tag:'Три стакана, один шарик и никаких подсказок.',pay:'ДО 2,85×',
+    rule:'Запомни шарик, следи за стаканами и выбери верный. Базовая выплата 2,7×; магнит из магазина повышает её до 2,85×.'},
+  poker:{name:'ПОКЕР',ac:'#9cff57',span:'sp3',tag:'Пять карт, один обмен и решение, что оставить.',pay:'ДО 100×',
+    rule:'Собери комбинацию от пары валетов. Атлас покерных рук повышает выплату за пару до 2,2×.'}
+};
+let cleanups=[];
+function onCleanup(fn){cleanups.push(fn);}
+function clearGame(){cleanups.forEach(f=>{try{f();}catch(e){}});cleanups=[];}
+
+/* ══════════ ставка (общая панель) ══════════ */
+function betBar(box,onChange){
+  const id=currentGame;
+  const bar=el('div','betbar');
+  bar.innerHTML='<span class="k">СТАВКА</span><span class="betval"><b>500</b> ₽</span><input class="bet-input" type="text" inputmode="numeric" aria-label="Своя сумма ставки" placeholder="Своя сумма"><button class="chip apply-bet">ОК</button><span class="minnote">мин. 50 ₽</span><span class="chips" style="display:flex;gap:8px;flex-wrap:wrap"></span>';
+  let bet=S.bets[id]||500;
+  const cw=bar.querySelector('.chips'),input=bar.querySelector('.bet-input');
+  [100,500,1000,5000,10000].forEach(v=>{
+    const c=el('button','chip',v>=1000?(v/1000)+'K':String(v));
+    c.onclick=()=>{Snd.click();setBet(v);};cw.appendChild(c);});
+  const mx=el('button','chip','MAX');mx.onclick=()=>{Snd.click();setBet(S.balance);};cw.appendChild(mx);
+  function setBet(v){if(!/^\d+$/.test(String(v)))return;
+    let parsed=money(v),available=money(S.balance);parsed=parsed/50n*50n;
+    if(parsed>available)parsed=available/50n*50n;if(parsed<50n)parsed=50n;
+    bet=authSession?parsed.toString():parsed;
+    bar.querySelector('b').textContent=fmt(bet);input.value=bet;S.bets[id]=bet;save();onChange&&onChange(bet);}
+  bar.querySelector('.apply-bet').onclick=()=>{Snd.click();setBet(input.value);};input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();setBet(input.value);}};input.onchange=()=>setBet(input.value);
+  setBet(bet);
+  bar.getBet=()=>bet;
+  return bar;
+}
+function lockBetBar(bar,locked){bar.querySelectorAll('button,input').forEach(b=>b.disabled=locked);}
+function lockButtons(container,locked){container.querySelectorAll('button').forEach(b=>b.disabled=locked);}
+
+/* ══════════ 1. СЛОТЫ ══════════ */
+const SLOT_SYMS=[{s:'7',w:2,p:50},{s:'💎',w:3,p:30},{s:'💀',w:4,p:25},{s:'🔔',w:5,p:20},
+  {s:'🔥',w:6,p:15},{s:'🍀',w:7,p:12},{s:'BAR',w:6,p:10},{s:'🍒',w:8,p:8}];
+const SLOT_POOL=SLOT_SYMS.flatMap(x=>Array(x.w).fill(x.s));
+const slotSym=()=>pick(SLOT_POOL);
+function buildSlots(box){
+  let busy=false,curBet=0;
+  box.innerHTML='<div class="reels">'+
+    '<div class="reel"><span class="sym seven">7</span></div>'+
+    '<div class="reel"><span class="sym seven">7</span></div>'+
+    '<div class="reel"><span class="sym seven">7</span></div></div>'+
+    '<div class="res"></div>';
+  const reels=[...box.querySelectorAll('.reel')],res=box.querySelector('.res');
+  const bar=betBar(box,b=>curBet=b);
+  box.appendChild(bar);
+  const go=btn('КРУТИТЬ','btn green');go.style.width='100%';
+  const row=el('div');row.style.cssText='margin-top:16px';row.appendChild(go);box.appendChild(row);
+  const spinDur=[900,1200,1500];
+  go.onclick=()=>{
+    if(busy)return;
+    const b=bar.getBet();
+    if(b>S.balance){Snd.lose();toast('Не хватает на ставку');return;}
+    busy=true;go.disabled=true;lockBetBar(bar,true);changeBalance(-b);recordWager(b);
+    res.className='res';reels.forEach(r=>r.classList.remove('hit'));
+    const final=[slotSym(),slotSym(),slotSym()];
+    reels.forEach((r,i)=>{
+      r.classList.add('spin');
+      const iv=setInterval(()=>{r.querySelector('.sym').textContent=slotSym();Snd.tick();},70);
+      cleanups.push(()=>clearInterval(iv));
+      setTimeout(()=>{
+        clearInterval(iv);r.classList.remove('spin');
+        r.querySelector('.sym').textContent=final[i];Snd.spin();
+      },spinDur[i]);
+    });
+    setTimeout(()=>{
+      let mult=0;
+      const a=final[0],b2=final[1],c=final[2];
+      if(a===b2&&b2===c)mult=SLOT_SYMS.find(x=>x.s===a).p;
+      else if(a===b2||b2===c||a===c)mult=2+(hasSkill('slot_token')?0.2:0)+(S.storyFlags.bold?0.05:0);
+      const win=moneyProduct(b,mult);
+      if(win>0){
+        changeBalance(win,win>=moneyProduct(b,20)?'winBig':'win');recordWin(win);
+        res.className='res on win';
+        res.textContent=mult>=10?('💥 '+mult+'× КУШ! +'+fmt(win)+' ₽'):('Пара! +'+fmt(win)+' ₽');
+        reels.forEach(r=>r.classList.add('hit'));
+        if(mult>=10)jackpot(win);
+      }else{
+        Snd.lose();res.className='res on lose';res.textContent='Мимо. Бетон ждёт реванша.';
+      }
+      busy=false;go.disabled=false;lockBetBar(bar,false);
+    },spinDur[2]+200);
+  };
+}
+
+/* ══════════ 2. БЛЭКДЖЕК ══════════ */
+const SUITS=['♠','♥','♦','♣'],RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+function newDeck(){const d=[];SUITS.forEach(s=>RANKS.forEach(r=>d.push({s,r})));
+  for(let i=d.length-1;i>0;i--){const j=irnd(0,i);[d[i],d[j]]=[d[j],d[i]];}return d;}
+function handVal(h){let v=0,a=0;h.forEach(c=>{if(c.r==='A'){a++;v+=11;}else if(['K','Q','J'].includes(c.r))v+=10;else v+=+c.r;});
+  while(v>21&&a>0){v-=10;a--;}return v;}
+const isBJ=h=>h.length===2&&handVal(h)===21;
+const isRed=c=>c.s==='♥'||c.s==='♦';
+function cardHTML(c,back){
+  if(back)return '<div class="card back anim"><span class="cr"></span><span class="cs"></span></div>';
+  return '<div class="card anim '+(isRed(c)?'red':'')+'"><span class="cr">'+c.r+c.s+'</span><span class="cs">'+c.s+'</span></div>';
+}
+function buildBlackjack(box){
+  let deck=[],player=[],dealer=[],phase='idle',curBet=0;
+  box.innerHTML='<div class="tableside">'+
+    '<div class="hand"><div class="hname">ДИЛЕР <span class="score" id="bjD">—</span></div><div class="cards" id="bjDC"></div></div>'+
+    '<div class="hand"><div class="hname">ТЫ <span class="score" id="bjP">—</span></div><div class="cards" id="bjPC"></div></div></div>'+
+    '<div class="res"></div><div class="actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px"></div>';
+  const pc=box.querySelector('#bjPC'),dc=box.querySelector('#bjDC'),
+        ps=box.querySelector('#bjP'),ds=box.querySelector('#bjD'),
+        res=box.querySelector('.res'),act=box.querySelector('.actions');
+  const bar=betBar(box,b=>curBet=b);box.appendChild(bar);
+  const dealB=btn('РАЗДАТЬ','btn green'),hitB=btn('ЕЩЁ','btn'),standB=btn('СТОП','btn red'),dbB=btn('ДАБЛ','btn');
+  [dealB,hitB,standB,dbB].forEach(b=>act.appendChild(b));
+  function render(){
+    pc.innerHTML=player.map(c=>cardHTML(c)).join('');
+    dc.innerHTML=dealer.map((c,i)=>cardHTML(c,i===1&&phase!=='over')).join('');
+    ps.textContent=player.length?handVal(player):'—';
+    ds.textContent=dealer.length?(phase==='over'?handVal(dealer):handVal([dealer[0]])):'—';
+  }
+  function end(result,msg,extra){
+    phase='over';render();
+    res.className='res on '+result;res.textContent=msg;
+    [dealB,hitB,standB,dbB].forEach(b=>b.disabled=true);dealB.disabled=false;
+    lockBetBar(bar,false);if(extra)extra();
+  }
+  function dealerPlay(){
+    phase='dealer';render();
+    (function step(){
+      if(handVal(dealer)<17){dealer.push(deck.pop());render();Snd.tick();setTimeout(step,520);return;}
+      const pv=handVal(player),dv=handVal(dealer);
+      if(dv>21){const w=moneyProduct(curBet,2);changeBalance(w,'win');recordWin(w);end('win','Дилер переобудовался. +'+fmt(w)+' ₽');}
+      else if(dv>pv){Snd.lose();end('lose','Дилер '+dv+' против '+pv+'. Бетон победил.');}
+      else if(dv<pv){const w=moneyProduct(curBet,2);changeBalance(w,'win');recordWin(w);end('win','Ты '+pv+' против '+dv+'. +'+fmt(w)+' ₽');}
+      else{changeBalance(curBet,'lose');end('push','Ничья. Ставка возвращена.');}
+    })();
+  }
+  dealB.onclick=()=>{
+    const b=curBet;if(b>S.balance){Snd.lose();toast('Не хватает');return;}
+    changeBalance(-b);recordWager(b);deck=newDeck();lockBetBar(bar,true);
+    player=[deck.pop(),deck.pop()];dealer=[deck.pop(),deck.pop()];
+    phase='play';[hitB,standB,dbB].forEach(x=>x.disabled=false);dealB.disabled=true;
+    res.className='res';render();
+    if(isBJ(player)&&isBJ(dealer)){
+      changeBalance(curBet,null);end('push','Два блэкджека. Ничья — ставка возвращена.');return;
+    }
+    if(isBJ(player)){
+      const w=moneyProduct(curBet,hasSkill('bj_course')?2.65:2.5);changeBalance(w,'winBig');recordWin(w);
+      end('win','⚡ БЛЭКДЖЕК! +'+fmt(w)+' ₽');return;
+    }
+    if(isBJ(dealer)){Snd.lose();end('lose','У дилера блэкджек.');return;}
+  };
+  hitB.onclick=()=>{if(phase!=='play')return;Snd.click();
+    player.push(deck.pop());render();
+    if(handVal(player)>21){Snd.lose();end('lose','Переобудовался на '+handVal(player)+'.');}
+    else if(handVal(player)===21)standB.onclick();};
+  standB.onclick=()=>{if(phase!=='play')return;dealerPlay();};
+  dbB.onclick=()=>{if(phase!=='play'||curBet>S.balance)return;
+    changeBalance(-curBet);recordWager(curBet);curBet*=2n;
+    player.push(deck.pop());render();
+    if(handVal(player)>21){Snd.lose();end('lose','Дабло проиграно на '+handVal(player)+'.');}
+    else dealerPlay();};
+  render();
+}
+
+/* ══════════ 3. РУЛЕТКА ══════════ */
+const RED={1:1,3:1,5:1,7:1,9:1,12:1,14:1,16:1,18:1,19:1,21:1,23:1,25:1,27:1,30:1,32:1,34:1,36:1};
+const rcol=n=>n===0?'green':(RED[n]?'red':'black');
+function buildRoulette(box){
+  let spinning=false,curBet=0,choice='red',wheelTurns=0;
+  box.innerHTML='<div class="roulette-wrap"><div class="wheelbox"><div class="pointer"></div><div class="wheel" id="rw"></div>'+
+    '<div class="hub"><span class="rnum" id="rNum">—</span><span class="rcol" id="rCol"></span></div></div>'+
+    '<div class="rbets" id="rBets"></div></div><div class="res"></div>';
+  const wheel=box.querySelector('#rw'),numEl=box.querySelector('#rNum'),colEl=box.querySelector('#rCol'),
+        betsEl=box.querySelector('#rBets'),res=box.querySelector('.res');
+  // сегменты
+  const N=37,ang=360/N;
+  for(let i=0;i<N;i++){
+    const seg=el('div','seg');seg.style.setProperty('--a',(i*ang)+'deg');
+    seg.style.background='conic-gradient(from 0deg,transparent 0deg,'+(i*ang)+'deg '+ang+'deg,transparent '+(ang+1)+'deg 360deg)';
+    const c=rcol(i);seg.style.setProperty('--a',(i*ang)+'deg');
+    seg.innerHTML='<b style="color:'+(c==='green'?'#35e07a':c==='red'?'#e8331f':'#e9e3d5')+'">'+i+'</b>';
+    // цветной клин
+    const wedge=el('div');wedge.style.cssText='position:absolute;inset:0;background:conic-gradient(from '+(i*ang)+'deg,transparent 0deg,'+(i*ang)+'deg,'+(c==='green'?'#1a5a30':c==='red'?'#7e1a12':'#2a2a2a')+' '+ang+'deg,transparent '+(ang+0.5)+'deg 360deg)';
+    seg.appendChild(wedge);
+    wheel.appendChild(seg);
+  }
+  const options=[
+    {id:'red',label:'КРАСНОЕ',m:'2×',cls:'red'},
+    {id:'black',label:'ЧЁРНОЕ',m:'2×',cls:'black'},
+    {id:'green',label:'НОЛЬ',m:'14×',cls:'green'},
+    {id:'even',label:'ЧЁТ',m:'2×',cls:''},
+    {id:'odd',label:'НЕЧЁТ',m:'2×',cls:''},
+    {id:'low',label:'1–18',m:'2×',cls:''},
+    {id:'high',label:'19–36',m:'2×',cls:''}];
+  options.forEach(o=>{
+    const b=el('button','rbet '+o.cls,(o.id==='red'||o.id==='black'||o.id==='green'?'● ':'')+o.label+'<span class="m">'+o.m+'</span>');
+    b.onclick=()=>{if(spinning)return;Snd.click();choice=o.id;[...betsEl.children].forEach(c=>c.classList.remove('on'));b.classList.add('on');};
+    betsEl.appendChild(b);
+  });
+  betsEl.children[0].classList.add('on');
+  const bar=betBar(box,b=>curBet=b);
+  const wrap=el('div','');wrap.style.cssText='margin-top:16px';
+  const go=btn('ВЕРТЕТЬ','btn green');go.style.width='100%';
+  wrap.appendChild(bar);box.appendChild(wrap);box.appendChild(go);
+  function winFor(n,choice){
+    if(choice==='green')return n===0;
+    if(choice==='red')return n!==0&&RED[n];
+    if(choice==='black')return n!==0&&!RED[n];
+    if(choice==='even')return n!==0&&n%2===0;
+    if(choice==='odd')return n!==0&&n%2===1;
+    if(choice==='low')return n>=1&&n<=18;
+    if(choice==='high')return n>=19&&n<=36;
+    return false;
+  }
+  go.onclick=()=>{
+    if(spinning)return;
+    const b=curBet;if(b>S.balance){Snd.lose();toast('Не хватает');return;}
+    spinning=true;go.disabled=true;lockButtons(betsEl,true);lockBetBar(bar,true);changeBalance(-b);recordWager(b);
+    res.className='res';
+    const n=irnd(0,36);
+    wheelTurns+=5;
+    const target=wheelTurns*360-(n*ang)+ang/2;
+    wheel.style.transition='transform 4.5s cubic-bezier(.15,.9,.2,1)';
+    wheel.style.transform='rotate('+target+'deg)';
+    Snd.spin();
+    setTimeout(()=>{
+      numEl.textContent=n;colEl.textContent=rcol(n).toUpperCase();
+      Snd.coin();
+      if(winFor(n,choice)){
+        const mult=choice==='green'?(14+(hasSkill('wheel_contact')?1:0)+(S.storyFlags.hiredMax?0.25:0)):(S.storyFlags.capitalDeal?1.9:2);const w=moneyProduct(b,mult);
+        changeBalance(w,w>=moneyProduct(b,10)?'winBig':'win');recordWin(w);
+        res.className='res on win';res.textContent='Выпало '+n+'! +'+fmt(w)+' ₽';
+      }else{Snd.lose();res.className='res on lose';res.textContent='Выпало '+n+'. Не повезло.';}
+      spinning=false;go.disabled=false;lockButtons(betsEl,false);lockBetBar(bar,false);
+    },4600);
+  };
+}
+
+/* ══════════ 4. КРЭШ ══════════ */
+function buildCrash(box){
+  let running=false,crashed=false,crashPoint=1,cur=1,raf=null,curBet=0,startedAt=0,growthRate=.19,visualSeed=0,trail=[];
+  const MIN_CASH=1.10,MAX_CRASH=30,HOUSE_FACTOR=hasSkill('risk_protocol')?0.95:0.94,INSTANT_CRASH=S.storyFlags.trustedGrom?0.03:0.035;
+  const hist=[];
+  box.innerHTML='<div class="mult" id="cm">×1.00</div>'+
+    '<canvas id="crashCanvas" width="600" height="300"></canvas>'+
+    '<div class="crash-hist" id="chist"></div><div class="k" style="margin-top:10px;text-align:center">ВЫВОД С ×1,10 · МАКСИМУМ ×30 · ЕСТЬ ШАНС МГНОВЕННОГО КРЭША</div><div class="res"></div>';
+  const cv=box.querySelector('#crashCanvas'),ctx=cv.getContext('2d'),
+        multEl=box.querySelector('#cm'),res=box.querySelector('.res'),histEl=box.querySelector('#chist');
+  const bar=betBar(box,b=>curBet=b);
+  const start=btn('СТАРТ','btn green'),cash=btn('ВЫВЕСТИ','btn');
+  start.style.width='100%';cash.style.width='100%';cash.disabled=true;
+  const row=el('div');row.style.cssText='display:flex;gap:10px;margin-top:16px';
+  row.appendChild(start);box.appendChild(row);box.appendChild(cash);box.appendChild(bar);
+  function draw(){
+    const w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);
+    // сетка
+    ctx.strokeStyle='#222';ctx.lineWidth=1;
+    for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(0,h*i/5);ctx.lineTo(w,h*i/5);ctx.stroke();}
+    const color=crashed?'#e8331f':'#35e07a';ctx.strokeStyle=color;ctx.lineWidth=3;
+    ctx.beginPath();trail.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});ctx.stroke();
+    const point=trail[trail.length-1]||{x:0,y:h};ctx.fillStyle=color;
+    ctx.beginPath();ctx.arc(point.x,point.y,6,0,7);ctx.fill();
+  }
+  function loop(){
+    const elapsed=(performance.now()-startedAt)/1000;
+    cur=Math.exp(elapsed*growthRate);
+    const x=Math.min(cv.width*.94,(elapsed/17)*cv.width);
+    const baseY=cv.height-Math.min(cv.height*.84,(Math.log(cur)/Math.log(MAX_CRASH))*cv.height*.92);
+    const y=Math.max(18,baseY+Math.sin(elapsed*1.7+visualSeed)*3);
+    trail.push({x,y});if(trail.length>280)trail.shift();
+    multEl.textContent='×'+cur.toFixed(2);
+    cash.disabled=!running||cur<MIN_CASH;
+    if(cur>1.5)multEl.classList.add('hot');
+    if(cur>=crashPoint){
+      running=false;crashed=true;multEl.classList.add('crash');multEl.classList.remove('hot');
+      Snd.boom();draw();
+      hist.unshift(crashPoint.toFixed(2));hist.length=Math.min(hist.length,8);
+      renderHist();
+      res.className='res on lose';res.textContent='💥 Крэш на ×'+crashPoint.toFixed(2);
+      start.disabled=false;cash.disabled=true;lockBetBar(bar,false);
+      return;
+    }
+    draw();raf=requestAnimationFrame(loop);
+  }
+  function renderHist(){
+    histEl.innerHTML=hist.map(h=>{const v=+h;
+      const c=v<2?'#555':v<5?'#ffc61a':'#35e07a';
+      return '<span style="background:'+c+';color:#111">×'+h+'</span>';}).join('');
+  }
+  start.onclick=()=>{
+    if(running)return;
+    const b=curBet;if(b>S.balance){Snd.lose();toast('Не хватает');return;}
+    changeBalance(-b);recordWager(b);
+    const instant=Math.random()<INSTANT_CRASH;
+    const r=Math.random();
+    crashPoint=instant?1:Math.min(MAX_CRASH,Math.max(1.01,Math.floor((HOUSE_FACTOR/(1-r))*100)/100));
+    cur=1;startedAt=performance.now();growthRate=rnd(.16,.23);visualSeed=rnd(0,6.28);trail=[{x:0,y:cv.height}];running=true;crashed=false;multEl.className='mult';res.className='res';
+    start.disabled=true;cash.disabled=true;lockBetBar(bar,true);
+    Snd.click();loop();
+  };
+  cash.onclick=()=>{
+    if(!running||cur<MIN_CASH)return;
+    running=false;crashed=false;cancelAnimationFrame(raf);
+    const w=moneyProduct(curBet,cur);changeBalance(w,cur>=5?'winBig':'win');recordWin(w);
+    multEl.classList.remove('crash','hot');
+    res.className='res on win';res.textContent='Выведено на ×'+cur.toFixed(2)+'! +'+fmt(w)+' ₽';
+    if(cur>=5)jackpot(w);
+    start.disabled=false;cash.disabled=true;lockBetBar(bar,false);draw();
+  };
+  onCleanup(()=>cancelAnimationFrame(raf));
+  draw();
+}
+
+/* ══════════ 5. КОСТИ ══════════ */
+const DICE_PIP={1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+function buildDice(box){
+  let busy=false,curBet=0;
+  box.innerHTML='<div class="dice-row"><div class="die" id="d1"></div><div class="die" id="d2"></div></div>'+
+    '<div class="res"></div><div class="rbets" id="dbets" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:16px"></div>';
+  const d1=box.querySelector('#d1'),d2=box.querySelector('#d2'),
+        res=box.querySelector('.res'),betsEl=box.querySelector('#dbets');
+  let choice='more';
+  const opts=[
+    {id:'more',label:'БОЛЬШЕ 7',m:'2×'},{id:'less',label:'МЕНЬШЕ 7',m:'2×'},
+    {id:'seven',label:'РОВНО 7',m:'5×'},{id:'pair',label:'ПАРА',m:hasSkill('calibrated_dice')?'2,75×':'2,5×'}];
+  opts.forEach(o=>{
+    const b=el('button','rbet',o.label+'<span class="m">'+o.m+'</span>');
+    b.onclick=()=>{if(busy)return;Snd.click();choice=o.id;[...betsEl.children].forEach(c=>c.classList.remove('on'));b.classList.add('on');};
+    betsEl.appendChild(b);
+  });
+  betsEl.children[0].classList.add('on');
+  const bar=betBar(box,b=>curBet=b);box.appendChild(bar);
+  const go=btn('БРОСИТЬ','btn orange');go.style.width='100%';
+  const row=el('div');row.style.cssText='margin-top:16px';row.appendChild(go);box.appendChild(row);
+  function showDie(die,n){
+    die.innerHTML='';
+    for(let i=0;i<9;i++){const p=el('div','p');die.appendChild(p);}
+    DICE_PIP[n].forEach(i=>die.children[i-1].classList.add('on'));
+  }
+  go.onclick=()=>{
+    if(busy)return;
+    const b=curBet;if(b>S.balance){Snd.lose();toast('Не хватает');return;}
+    busy=true;go.disabled=true;lockButtons(betsEl,true);lockBetBar(bar,true);changeBalance(-b);recordWager(b);
+    res.className='res';
+    d1.classList.add('rolling');d2.classList.add('rolling');
+    const iv=setInterval(()=>{showDie(d1,irnd(1,6));showDie(d2,irnd(1,6));Snd.tick();},90);
+    cleanups.push(()=>clearInterval(iv));
+    setTimeout(()=>{
+      clearInterval(iv);
+      const a=irnd(1,6),c=irnd(1,6),s=a+c;
+      d1.classList.remove('rolling');d2.classList.remove('rolling');
+      showDie(d1,a);showDie(d2,c);Snd.coin();
+      let win=0;
+      if(choice==='more'&&s>7)win=2;
+      else if(choice==='less'&&s<7)win=2;
+      else if(choice==='seven'&&s===7)win=S.storyFlags.publicChallenge?5.5:5;
+      else if(choice==='pair'&&a===c)win=hasSkill('calibrated_dice')?2.75:2.5;
+      const w=moneyProduct(b,win);
+      if(win){changeBalance(w,win>=5?'winBig':'win');recordWin(w);
+        res.className='res on win';res.textContent='Сумма '+s+'! +'+fmt(w)+' ₽';}
+      else{Snd.lose();res.className='res on lose';res.textContent='Сумма '+s+'. Промах.';}
+      busy=false;go.disabled=false;lockButtons(betsEl,false);lockBetBar(bar,false);
+    },1400);
+  };
+  showDie(d1,1);showDie(d2,6);
+}
+
+/* ══════════ 6. МИНЫ ══════════ */
+function buildMines(box){
+  let grid=[],mines=5,opened=0,curBet=0,active=false,placed=false;
+  const M=5;
+  box.innerHTML='<div class="mines" id="mg"></div>'+
+    '<div class="res"></div>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px">'+
+    '<span class="k">МИНЫ</span>'+
+    '<button class="chip" id="mDn">−</button><b id="mCnt" style="font-family:JetBrains Mono;font-size:20px;color:var(--red)">5</b>'+
+    '<button class="chip" id="mUp">+</button>'+
+    '<span style="margin-left:auto;font-family:JetBrains Mono;font-size:14px">×<b id="mMult" style="color:var(--yellow)">1.00</b></span></div>'+
+    '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn green" id="mStart" style="flex:1"><span>СТАРТ</span></button>'+
+    '<button class="btn" id="mCash" style="flex:1" disabled><span>ВЫВЕСТИ</span></button></div>';
+  const mg=box.querySelector('#mg'),res=box.querySelector('.res'),
+        cntEl=box.querySelector('#mCnt'),multEl=box.querySelector('#mMult'),
+        stB=box.querySelector('#mStart'),cashB=box.querySelector('#mCash');
+  const bar=betBar(box,b=>curBet=b);box.appendChild(bar);
+  function mult(){const tot=M*M;let m=1;for(let i=0;i<opened;i++)m*=((tot-i)/(tot-mines-i));return m*(S.storyFlags.protectedDistrict?1.02:1);}
+  function renderMult(){multEl.textContent=mult().toFixed(2);}
+  function buildGrid(){
+    mg.innerHTML='';grid=[];
+    for(let i=0;i<M*M;i++){
+      const t=el('div','tile');t.onclick=()=>open(i);
+      mg.appendChild(t);grid.push(t);
+    }
+  }
+  function open(i){
+    if(!active||grid[i].classList.contains('open'))return;
+    if(grid[i].dataset.mine==='1'){
+      grid.forEach(t=>{if(t.dataset.mine==='1')t.classList.add('mine');t.textContent=t.dataset.mine==='1'?'💣':'💎';});
+      active=false;Snd.boom();
+      res.className='res on lose';res.textContent='💣 БУМ! Плитка была заряжена.';
+      stB.disabled=false;cashB.disabled=true;lockBetBar(bar,false);box.querySelector('#mDn').disabled=false;box.querySelector('#mUp').disabled=false;
+      return;
+    }
+    opened++;grid[i].classList.add('open','safe');grid[i].textContent='💎';cashB.disabled=false;
+    Snd.coin();renderMult();
+    if(opened===M*M-mines){cashOut();}
+  }
+  function cashOut(){
+    active=false;
+    const w=moneyProduct(curBet,mult());
+    changeBalance(w,w>=moneyProduct(curBet,3)?'winBig':'win');recordWin(w);
+    res.className='res on win';res.textContent='Выведено на ×'+mult().toFixed(2)+'! +'+fmt(w)+' ₽';
+    grid.forEach(t=>{if(t.dataset.mine==='1'){t.classList.add('mine');t.textContent='💣';}});
+    stB.disabled=false;cashB.disabled=true;lockBetBar(bar,false);box.querySelector('#mDn').disabled=false;box.querySelector('#mUp').disabled=false;
+  }
+  box.querySelector('#mDn').onclick=()=>{if(!active&&mines>1){mines--;cntEl.textContent=mines;Snd.click();}};
+  box.querySelector('#mUp').onclick=()=>{if(!active&&mines<24){mines++;cntEl.textContent=mines;Snd.click();}};
+  stB.onclick=()=>{
+    if(active)return;
+    const b=curBet;if(b>S.balance){Snd.lose();toast('Не хватает');return;}
+    changeBalance(-b);recordWager(b);
+    const set=new Set();while(set.size<mines)set.add(irnd(0,M*M-1));
+    grid.forEach((t,i)=>{t.className='tile';t.textContent='';t.dataset.mine=set.has(i)?'1':'0';});
+    opened=0;active=true;renderMult();
+    res.className='res';stB.disabled=true;cashB.disabled=true;lockBetBar(bar,true);box.querySelector('#mDn').disabled=true;box.querySelector('#mUp').disabled=true;
+  };
+  cashB.onclick=()=>{if(active)cashOut();};
+  buildGrid();renderMult();
+}
+
+/* ══════════ 7. ОРЁЛ И РЕШКА ══════════ */
+function buildCoinflip(box){
+  let busy=false,choice='heads',curBet=0;
+  box.innerHTML='<div id="coin" style="font-size:110px;text-align:center;padding:20px;filter:drop-shadow(0 10px 8px #000)">🪙</div><div class="res"></div>'+
+    '<div class="rbets" id="coinChoices" style="display:grid;grid-template-columns:1fr 1fr;margin-top:12px"></div>';
+  const coin=box.querySelector('#coin'),res=box.querySelector('.res'),choices=box.querySelector('#coinChoices');
+  [['heads','ОРЁЛ'],['tails','РЕШКА']].forEach(([id,label])=>{const b=el('button','rbet',label+'<span class="m">2×</span>');b.onclick=()=>{if(busy)return;choice=id;[...choices.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');Snd.click();};choices.appendChild(b);});
+  choices.children[0].classList.add('on');
+  const bar=betBar(box,b=>curBet=b);box.appendChild(bar);
+  const go=btn('ПОДБРОСИТЬ','btn green');go.style.cssText='width:100%;margin-top:16px';box.appendChild(go);
+  go.onclick=()=>{if(busy)return;const b=curBet;if(b>S.balance){toast('Не хватает на ставку');return;}
+    busy=true;go.disabled=true;lockButtons(choices,true);lockBetBar(bar,true);changeBalance(-b);recordWager(b);res.className='res';
+    coin.style.transition='transform 1.1s cubic-bezier(.2,.8,.2,1)';coin.style.transform='rotateY(1440deg) scale(1.18)';Snd.spin();
+    setTimeout(()=>{const result=Math.random()<.5?'heads':'tails';coin.textContent=result==='heads'?'🦅':'🪙';coin.style.transition='none';coin.style.transform='none';
+      if(result===choice){const w=moneyProduct(b,2);changeBalance(w,'win');recordWin(w);res.className='res on win';res.textContent='Угадал! +'+fmt(w)+' ₽';}
+      else{Snd.lose();res.className='res on lose';res.textContent='Выпала '+(result==='heads'?'сторона орла.':'решка.')+' Попробуй ещё.';}
+      busy=false;go.disabled=false;lockButtons(choices,false);lockBetBar(bar,false);},1150);
+  };
+}
+
+/* ══════════ 8. ВЫШЕ / НИЖЕ ══════════ */
+const HIGHLOW_RTP=0.96;
+function highLowStep(current,direction){
+  const winningRanks=direction==='high'?14-current:current-2;
+  if(winningRanks<=0)return null;
+  const chance=winningRanks/13;
+  return{chance,growth:(hasSkill('counting_ledger')?0.98:HIGHLOW_RTP)/chance};
+}
+function buildHighlow(box){
+  let active=false,current=7,mult=1,curBet=0,rounds=0;
+  const labels={11:'J',12:'Q',13:'K',14:'A'};const cardName=n=>labels[n]||String(n);
+  box.innerHTML='<div style="text-align:center"><div class="k">ТЕКУЩАЯ КАРТА</div><div id="hlCard" class="card" style="margin:14px auto;width:100px;height:140px;align-items:center;justify-content:center;font-size:42px">7</div>'+
+    '<div style="font:800 18px JetBrains Mono">МНОЖИТЕЛЬ ×<b id="hlMult" style="color:var(--yellow)">1.00</b></div></div><div class="res"></div>'+
+    '<div id="hlActions" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px"></div>';
+  const card=box.querySelector('#hlCard'),multEl=box.querySelector('#hlMult'),res=box.querySelector('.res'),actions=box.querySelector('#hlActions');
+  const higher=btn('ВЫШЕ','btn green'),lower=btn('НИЖЕ','btn red'),start=btn('НАЧАТЬ','btn green'),cash=btn('ЗАБРАТЬ','btn');
+  actions.append(start,higher,lower,cash);higher.disabled=lower.disabled=cash.disabled=true;
+  const bar=betBar(box,b=>curBet=b);box.appendChild(bar);
+  function show(n){card.textContent=cardName(n);card.style.color=n>=11?'var(--yellow)':'#111';}
+  function updateGuessButtons(){
+    const high=highLowStep(current,'high'),low=highLowStep(current,'low');
+    higher.querySelector('span').textContent='ВЫШЕ'+(high?' · ×'+high.growth.toFixed(2):' · —');
+    lower.querySelector('span').textContent='НИЖЕ'+(low?' · ×'+low.growth.toFixed(2):' · —');
+    higher.disabled=!active||!high;lower.disabled=!active||!low;
+  }
+  function finish(win){active=false;start.disabled=false;updateGuessButtons();cash.disabled=true;lockBetBar(bar,false);if(win){const w=moneyProduct(curBet,mult);changeBalance(w,mult>=4?'winBig':'win');recordWin(w);res.className='res on win';res.textContent='Цепочка закрыта: ×'+mult.toFixed(2)+' · +'+fmt(w)+' ₽';}else{Snd.lose();res.className='res on lose';res.textContent='Цепочка сорвалась на карте '+cardName(current)+'.';}}
+  function guess(dir){if(!active)return;const previous=current,step=highLowStep(previous,dir);if(!step)return;const next=irnd(2,14);current=next;show(current);
+    if(next>previous&&dir==='high'||next<previous&&dir==='low'){
+      rounds++;mult=Math.min(20,mult*step.growth);multEl.textContent=mult.toFixed(2);cash.disabled=false;Snd.coin();res.className='res on push';res.textContent='Верно. Ещё ход или забирай.';updateGuessButtons();if(mult>=20)finish(true);
+    }else finish(false);
+  }
+  start.onclick=()=>{if(active)return;if(curBet>S.balance){toast('Не хватает на ставку');return;}changeBalance(-curBet);recordWager(curBet);active=true;lockBetBar(bar,true);rounds=0;mult=1;current=irnd(2,14);show(current);multEl.textContent='1.00';res.className='res';start.disabled=true;cash.disabled=true;updateGuessButtons();};
+  higher.onclick=()=>guess('high');lower.onclick=()=>guess('low');cash.onclick=()=>{if(active&&rounds>0)finish(true);};show(current);
+}
+
+/* ══════════ 9. НАПЁРСТКИ ══════════ */
+function buildCups(box){
+  let phase='idle',curBet=0,ballCupId=-1,order=[0,1,2],timers=[],slotPitch=0;
+  box.innerHTML='<div class="cups-row" id="cupsRow" aria-label="Три стакана"></div><div class="res" aria-live="polite"></div><div class="k" id="cupsHint" style="text-align:center;margin-top:12px">ЗАПОМНИ СТАКАН С ШАРИКОМ</div>';
+  const row=box.querySelector('#cupsRow'),res=box.querySelector('.res'),hint=box.querySelector('#cupsHint');
+  const cups=[];
+  for(let i=0;i<3;i++){
+    const cup=el('button','rbet cup-choice','<span class="cup-body" aria-hidden="true">🥤</span><span class="cup-ball" aria-hidden="true">🔴</span>');
+    cup.type='button';cup.dataset.cupId=String(i);cup.setAttribute('aria-label','Стакан '+(i+1));cup.disabled=true;row.appendChild(cup);cups.push(cup);
+  }
+  const bar=betBar(box,b=>curBet=b);box.appendChild(bar);const start=btn('НАЧАТЬ','btn green');start.style.cssText='width:100%;margin-top:16px';box.appendChild(start);
+  function later(fn,delay){const timer=setTimeout(fn,delay);timers.push(timer);return timer;}
+  function setCups(disabled){cups.forEach(cup=>cup.disabled=disabled);}
+  function resetCups(){
+    order=[0,1,2];
+    cups.forEach(cup=>{cup.style.transition='none';cup.style.left='0px';cup.style.top='0px';cup.classList.remove('peek','ball-shown','revealed','swapping');});
+  }
+  function finishRound(won,pickedId){
+    phase='result';setCups(true);start.disabled=false;lockBetBar(bar,false);hint.textContent='НАЖМИ «НАЧАТЬ», ЧТОБЫ СЫГРАТЬ ЕЩЁ РАЗ';
+    cups.forEach((cup,id)=>{cup.classList.toggle('revealed',id===ballCupId);cup.classList.remove('peek','ball-shown','swapping');});
+    if(won){const mult=2.7+(hasSkill('cup_magnet')?0.15:0)+(S.storyFlags.choseConnections?0.05:0),w=moneyProduct(curBet,mult);changeBalance(w,'win');recordWin(w);res.className='res on win';res.textContent='Шарик найден под выбранным стаканом! ×'+mult.toFixed(2)+' · +'+fmt(w)+' ₽';}
+    else{Snd.lose();res.className='res on lose';res.textContent='Мимо. Шарик был под другим стаканом.';}
+  }
+  function shuffleStep(step,total){
+    if(step>=total){phase='guess';setCups(false);hint.textContent='ГДЕ ШАРИК? ВЫБЕРИ СТАКАН';res.className='res';return;}
+    let first=irnd(0,2),second=irnd(0,1);if(second>=first)second++;
+    [order[first],order[second]]=[order[second],order[first]];
+    const duration=Math.max(110,220-step*11)+irnd(0,25);
+    cups.forEach((cup,id)=>{
+      const target=order.indexOf(id);
+      cup.classList.toggle('swapping',id===order[first]||id===order[second]);
+      cup.style.transitionDuration=duration+'ms';
+      cup.style.left=((target-id)*slotPitch)+'px';
+      cup.style.top=(id===order[first]||id===order[second]?-12:0)+'px';
+    });
+    Snd.spin();
+    later(()=>{cups.forEach(cup=>cup.classList.remove('swapping'));shuffleStep(step+1,total);},duration+20);
+  }
+  start.onclick=()=>{
+    if(phase==='reveal'||phase==='shuffle'||phase==='guess')return;
+    if(curBet>S.balance){toast('Не хватает на ставку');return;}
+    timers.forEach(clearTimeout);timers=[];resetCups();phase='reveal';start.disabled=true;lockBetBar(bar,true);changeBalance(-curBet);recordWager(curBet);res.className='res';
+    slotPitch=cups[0].offsetWidth+(parseFloat(getComputedStyle(row).columnGap)||0);void row.offsetWidth;cups.forEach(cup=>cup.style.transition='');
+    ballCupId=irnd(0,2);cups[ballCupId].classList.add('peek','ball-shown');
+    hint.textContent='ЗАПОМНИ, ГДЕ ШАРИК';
+    res.className='res on push';res.textContent='Смотри внимательно: сейчас стаканы перемешаются.';
+    later(()=>{
+      phase='shuffle';cups[ballCupId].classList.remove('peek','ball-shown');hint.textContent='СЛЕДИ ЗА ШАРИКОМ';
+      shuffleStep(0,12);
+    },1500);
+  };
+  row.onclick=event=>{
+    const cup=event.target.closest('.cup-choice');if(!cup||cup.disabled||phase!=='guess')return;
+    phase='resolving';const pickedId=Number(cup.dataset.cupId);finishRound(pickedId===ballCupId,pickedId);
+  };
+  const resizeCups=()=>{slotPitch=cups[0].offsetWidth+(parseFloat(getComputedStyle(row).columnGap)||0);cups.forEach((cup,id)=>cup.style.left=((order.indexOf(id)-id)*slotPitch)+'px');};
+  window.addEventListener('resize',resizeCups);
+  onCleanup(()=>{window.removeEventListener('resize',resizeCups);timers.forEach(clearTimeout);timers=[];});
+}
+
+/* ══════════ 10. ПОКЕР ══════════ */
+function buildPoker(box){
+  let deck=[],hand=[],held=new Set(),phase='idle',curBet=0,roundBet=0;
+  box.innerHTML='<div class="poker-hand" id="pokerHand"></div><div class="res"></div><div class="k" style="line-height:1.8;text-align:center">ПАРА J+ '+(hasSkill('poker_atlas')?'2,2×':'2×')+' · ДВЕ ПАРЫ 3× · ТРОЙКА 4× · СТРИТ 5× · ФЛЕШ 7× · ФУЛЛ-ХАУС 10× · КАРЕ 25× · СТРИТ-ФЛЕШ 50× · РОЯЛ-ФЛЕШ 100×</div>';
+  const handEl=box.querySelector('#pokerHand'),res=box.querySelector('.res'),bar=betBar(box,b=>curBet=b);box.appendChild(bar);const action=btn('РАЗДАТЬ','btn green');action.style.cssText='width:100%;margin-top:16px';box.appendChild(action);
+  const value=c=>c.r==='A'?14:['K','Q','J'].includes(c.r)?({J:11,Q:12,K:13}[c.r]):+c.r;
+  function render(){handEl.innerHTML=hand.map((c,i)=>'<button class="card poker-card '+(isRed(c)?'red ':'')+(held.has(i)?'held':'')+'" data-i="'+i+'"><span class="cr">'+c.r+c.s+'</span><span class="cs">'+c.s+'</span><span class="hold">'+(held.has(i)?'ДЕРЖАТЬ':'НАЖМИ, ЧТОБЫ ДЕРЖАТЬ')+'</span></button>').join('');}
+  function evaluate(){const vals=hand.map(value).sort((a,b)=>a-b),suits=hand.map(c=>c.s),counts={};vals.forEach(v=>counts[v]=(counts[v]||0)+1);const groups=Object.values(counts).sort((a,b)=>b-a),flush=new Set(suits).size===1,unique=[...new Set(vals)];let straight=unique.length===5&&unique[4]-unique[0]===4;if(unique.join(',')==='2,3,4,5,14')straight=true;const royal=flush&&unique.join(',')==='10,11,12,13,14';
+    if(royal)return['РОЯЛ-ФЛЕШ',100];if(flush&&straight)return['СТРИТ-ФЛЕШ',50];if(groups[0]===4)return['КАРЕ',25];if(groups[0]===3&&groups[1]===2)return['ФУЛЛ-ХАУС',10];if(flush)return['ФЛЕШ',7];if(straight)return['СТРИТ',5];if(groups[0]===3)return['ТРОЙКА',4];if(groups[0]===2&&groups[1]===2)return['ДВЕ ПАРЫ',3];if(groups[0]===2){const pair=+Object.keys(counts).find(k=>counts[k]===2);if(pair>=11)return['ПАРА '+cardNamePoker(pair),hasSkill('poker_atlas')?2.2:2];}return['БЕЗ КОМБИНАЦИИ',0];}
+  function cardNamePoker(v){return({11:'J',12:'Q',13:'K',14:'A'})[v]||v;}
+  handEl.onclick=e=>{const card=e.target.closest('.poker-card');if(!card||phase!=='draw')return;const i=+card.dataset.i;held.has(i)?held.delete(i):held.add(i);Snd.click();render();};
+  action.onclick=()=>{if(phase==='idle'){if(curBet>S.balance){toast('Не хватает на ставку');return;}roundBet=curBet;changeBalance(-roundBet);recordWager(roundBet);deck=newDeck();hand=Array.from({length:5},()=>deck.pop());held.clear();phase='draw';lockBetBar(bar,true);action.querySelector('span').textContent='ОБМЕНЯТЬ';res.className='res';render();return;}
+    if(phase==='draw'){hand=hand.map((c,i)=>held.has(i)?c:deck.pop());render();const [name,mult]=evaluate();if(mult>0){const w=moneyProduct(roundBet,mult);changeBalance(w,mult>=9?'winBig':'win');recordWin(w);res.className='res on win';res.textContent=name+' · ×'+mult+' · +'+fmt(w)+' ₽';if(mult>=25)jackpot(w,name);}else{Snd.lose();res.className='res on lose';res.textContent='Комбинации нет.';}phase='idle';held.clear();lockBetBar(bar,false);action.querySelector('span').textContent='РАЗДАТЬ';}
+  };
+  render();
+}
+
+function hasSkill(id){return S.owned.includes(id);}
+function gameLockReason(id){
+  if(id==='coinflip'&&S.storyFlags.refusedVera&&S.reputation<180)return'Вера закрыла доступ до 180 репутации';
+  if(id==='highlow'&&S.storyFlags.dealWithOwner&&S.reputation<700)return'Стол занят людьми Аркадия до 700 репутации';
+  return'';
+}
+function shopPrice(item){return Math.max(1,Math.round(item.price*(S.storyFlags.trustedMax?0.92:1)*(hasSkill('infrastructure')?0.97:1)));}
+
+/* ══════════ магазин ══════════ */
+const ITEMS=[
+  {id:'pen',name:'Ручка «Пионер»',ico:'🖊️',price:100,desc:'Пишет по бетону. Первый трофей игрока.',tier:0},
+  {id:'watch',name:'Часы «Хронограф»',ico:'⌚',price:500,desc:'Смотрит на время. Время — деньги.',tier:0},
+  {id:'cig',name:'Сигары «Тёмная»',ico:'🚬',price:1200,desc:'Одна — и нервы как новые.',tier:0},
+  {id:'phone',name:'Телефон «Гром»',ico:'📱',price:3000,desc:'Громкоговоритель на всю комнату.',tier:0},
+  {id:'matches',name:'Зажигалка «Искра»',ico:'🔥',price:1400,desc:'На случай, когда ночь затянулась, а разговор — нет.',tier:0},
+  {id:'family_photo',name:'Фото «Старый двор»',ico:'🖼️',price:2200,desc:'Напоминание о месте, с которого начался этот путь.',tier:0},
+  {id:'suit',name:'Костюм «Бетон»',ico:'🕴️',price:8000,desc:'Чёрный. Жёсткий. Как и ты.',tier:1},
+  {id:'bike',name:'Мото «Гроза»',ico:'🏍️',price:25000,desc:'Двигатель ревёт. Дворы знают.',tier:1},
+  {id:'pistol',name:'«Молот» 9мм',ico:'🔫',price:60000,desc:'Для переговоров. Только для переговоров.',tier:1},
+  {id:'car',name:'Машина «Титан»',ico:'🚗',price:200000,desc:'Чёрный внедорожник. Броня — опция.',tier:2},
+  {id:'gold',name:'Слитки золота',ico:'🪙',price:500000,desc:'10 кг. Тянет карман. Тянет судьбу.',tier:2},
+  {id:'house',name:'Дом «Цитадель»',ico:'🏠',price:2000000,desc:'Частная резиденция. Охрана — 24/7.',tier:3},
+  {id:'jet',name:'Джет «Стрела»',ico:'✈️',price:10000000,desc:'Личный самолёт. Небо — твоя парковка.',tier:3},
+  {id:'yacht',name:'Яхта «Левиафан»',ico:'🛥️',price:50000000,desc:'80 метров. Морской дворец.',tier:3},
+  {id:'island',name:'Остров «Приватный»',ico:'🏝️',price:200000000,desc:'Свой остров. Свой закон. Своя вселенная.',tier:3},
+  {id:'boots',name:'Ботинки «Асфальт»',ico:'🥾',price:250,desc:'Первый шаг к вершине района.',tier:0},
+  {id:'radio',name:'Рация «Шум»',ico:'📻',price:750,desc:'Всегда знать, что происходит за углом.',tier:0},
+  {id:'chain',name:'Цепь «Монолит»',ico:'⛓️',price:1800,desc:'Тяжёлая репутация на шее.',tier:0},
+  {id:'laptop',name:'Ноутбук «Контур»',ico:'💻',price:6500,desc:'Цифровой штаб для больших дел.',tier:1},
+  {id:'studio',name:'Студия «Гром»',ico:'🎙️',price:15000,desc:'Голос района теперь слышат все.',tier:1},
+  {id:'garage',name:'Гараж «Блок»',ico:'🏚️',price:45000,desc:'Место, где собираются планы и моторы.',tier:1},
+  {id:'club',name:'Клуб «Подвал»',ico:'🪩',price:120000,desc:'Ночная точка влияния и дохода.',tier:2},
+  {id:'truck',name:'Фура «Караван»',ico:'🚛',price:350000,desc:'Логистика решает больше, чем удача.',tier:2},
+  {id:'factory',name:'Завод «Монолит»',ico:'🏭',price:900000,desc:'Бетонная экономика начинает работать.',tier:2},
+  {id:'tower',name:'Башня «Вертикаль»',ico:'🏙️',price:5000000,desc:'Весь город виден из твоего кабинета.',tier:3},
+  {id:'satellite',name:'Спутник «Око»',ico:'🛰️',price:25000000,desc:'Ни одно событие не проходит мимо.',tier:3},
+  {id:'moon',name:'База «Луна»',ico:'🌕',price:500000000,desc:'Когда одного города уже недостаточно.',tier:3},
+  {id:'jacket',name:'Куртка «Район»',ico:'🧥',price:420,desc:'Прочная форма для первых ночных смен.',tier:0},
+  {id:'camera',name:'Камера «Кадр»',ico:'📷',price:950,desc:'Сохраняет моменты до того, как они стали легендой.',tier:0},
+  {id:'slot_token',name:'Жетон «Двойной шов»',ico:'🎟️',price:3500,desc:'Пары в слотах оплачиваются по коэффициенту 2,2× вместо 2×.',tier:0,skill:'СЛОТЫ: ПАРА 2,2×'},
+  {id:'safe',name:'Сейф «Контур»',ico:'🗄️',price:12000,desc:'Документы и наличные больше не лежат под матрасом.',tier:1},
+  {id:'van',name:'Фургон «Тень»',ico:'🚐',price:32000,desc:'Незаметная рабочая машина для команды.',tier:1},
+  {id:'bj_course',name:'Курс «Холодный счёт»',ico:'🎓',price:75000,desc:'Блэкджек теперь возвращает 2,65× вместо 2,5×.',tier:1,skill:'БЛЭКДЖЕК 2,65×'},
+  {id:'counting_ledger',name:'Книга вероятностей',ico:'📔',price:95000,desc:'Точные записи увеличивают выплату в «Выше / ниже» примерно на 2%.',tier:1,skill:'ВЫШЕ / НИЖЕ: +2% К ВЫПЛАТЕ'},
+  {id:'cup_magnet',name:'Магнит «Красный шар»',ico:'🧲',price:180000,desc:'Знакомый крупье раскрывает более выгодную ставку в напёрстках: 2,85×.',tier:1,skill:'НАПЁРСТКИ: 2,85×'},
+  {id:'warehouse',name:'Склад «Север»',ico:'🏢',price:650000,desc:'Запас места для растущей сети.',tier:2},
+  {id:'helicopter',name:'Вертолёт «Шторм»',ico:'🚁',price:1800000,desc:'Город становится заметно меньше сверху.',tier:2},
+  {id:'wheel_contact',name:'Контакт «Крупье»',ico:'🤝',price:2500000,desc:'Зелёный ноль в рулетке оплачивается 15× вместо 14×.',tier:2,skill:'РУЛЕТКА: НОЛЬ 15×'},
+  {id:'calibrated_dice',name:'Калиброванные кубики',ico:'🎲',price:3200000,desc:'Опытный мастер точнее подгоняет пару: выплата вырастает с 2,5× до 2,75×.',tier:2,skill:'КОСТИ: ПАРА 2,75×'},
+  {id:'poker_atlas',name:'Атлас покерных рук',ico:'🃏',price:4500000,desc:'Тренировки с атласом повышают выплату за пару валетов и выше до 2,2×.',tier:2,skill:'ПОКЕР: ПАРА 2,2×'},
+  {id:'bank',name:'Банк «Монолит»',ico:'🏦',price:80000000,desc:'Деньги начинают работать ещё до открытия зала.',tier:3},
+  {id:'orbit',name:'Орбитальный отель',ico:'🪐',price:350000000,desc:'Самый дорогой вид на собственную империю.',tier:3},
+  {id:'profit_share',name:'Доля команды',ico:'🤝',price:85000000,desc:'Команда помогает выполнять поручения: награды всех заданий увеличиваются на 5%.',tier:3,skill:'ЗАДАНИЯ: +5% К НАГРАДАМ'},
+  {id:'infrastructure',name:'Инфраструктурный фонд',ico:'🏗️',price:280000000,desc:'Оптовые контракты снижают стоимость новых покупок ещё на 3%.',tier:3,skill:'МАГАЗИН: ЕЩЁ −3%'},
+  {id:'risk_protocol',name:'Протокол «Холодный риск»',ico:'🧠',price:600000000,desc:'Немного улучшает математическую отдачу «Крэша»: 95% вместо 94%.',tier:3,skill:'КРЭШ: +1% К ОТДАЧЕ'}];
+const TIERS=['МАЛОЕ','СРЕДНЕЕ','БОЛЬШОЕ','ЛЕГЕНДАРНОЕ'];
+function renderShop(){
+  const grid=$('#shopGrid');grid.innerHTML='';
+  [0,1,2,3].forEach(t=>{
+    const sec=el('div','tier reveal');
+    sec.innerHTML='<h3>'+TIERS[t]+'</h3>';
+    const wrap=el('div','items');
+    ITEMS.filter(i=>i.tier===t).forEach(item=>{
+      const owned=S.owned.includes(item.id);
+      const card=el('div','item reveal'+(owned?' owned':'')+(item.skill?' skill-item':''));
+      card.innerHTML='<span class="owned-badge">В ТВОЁМ</span>'+
+        '<span class="ico">'+item.ico+'</span><h4>'+item.name+'</h4>'+
+        (item.skill?'<span class="skill-badge">⚡ НАВЫК · '+item.skill+'</span>':'')+
+        '<p class="desc">'+item.desc+'</p><span class="price">'+fmt(shopPrice(item))+' ₽</span>';
+      const b=owned?btn('КУПЛЕНО','btn ghost sm'):btn('КУПИТЬ','btn sm');
+      if(!owned)b.onclick=()=>buy(item);
+      card.appendChild(b);wrap.appendChild(card);observeReveal(card);
+    });
+    sec.appendChild(wrap);grid.appendChild(sec);
+    observeReveal(sec);
+  });
+  updateShopCnt();
+}
+function buy(item){
+  const price=shopPrice(item);if(S.balance<price){Snd.lose();toast('Не хватает '+fmt(money(price)-money(S.balance))+' ₽');return;}
+  changeBalance(-price,'lose');
+  S.owned.push(item.id);S.stats.purchases++;S.reputation+=3*(item.tier+1);save();
+  Snd.winBig();toast(item.ico+' '+item.name+' — твой.');
+  renderShop();updateProgressUI();
+}
+function updateShopCnt(){$('#shopCnt').textContent=S.owned.length+'/'+ITEMS.length;}
+
+/* ══════════ трофеи ══════════ */
+function rankName(w){
+  if(w<50000)return'ПЕШЕХОДЕЦ';if(w<200000)return'ГРУЗЧИК';
+  if(w<1000000)return'КАПИТАН';if(w<5000000)return'БОСС';
+  if(w<25000000)return'МАФИОЗИ';if(w<100000000)return'КРОТКОГО';
+  return'ИМПЕРATOR';
+}
+function renderTrophies(){
+  const w=$('#trophyWrap');
+  const rk=rankName(S.stats.won);
+  const nextMap=[50000,200000,1000000,5000000,25000000,100000000];
+  let prog=0;
+  const thresholds=[0,50000,200000,1000000,5000000,25000000,100000000];
+  for(let i=thresholds.length-1;i>=0;i--){if(S.stats.won>=thresholds[i]){
+    const nxt=thresholds[i+1]||thresholds[i]+1;
+    prog=Math.min(100,((Number(S.stats.won)-thresholds[i])/(nxt-thresholds[i]))*100);break;}}
+  w.innerHTML=
+    '<div class="trophy-head reveal"><div><span class="rk-label">РАНГ</span>'+
+    '<div class="rk-name">'+rk+'</div></div>'+
+    '<div class="trophy-nums">'+
+    '<div><span class="v">'+S.owned.length+'</span><span class="kk">ТРОФЕЕВ</span></div>'+
+    '<div><span class="v" style="color:var(--green)">'+fmt(S.stats.won)+'</span><span class="kk">ВЫБИТО</span></div>'+
+    '<div><span class="v" style="color:var(--yellow)">'+fmt(S.stats.biggest)+'</span><span class="kk">РЕКОРД</span></div>'+
+    '</div></div>'+
+    '<div class="progress reveal"><i style="width:'+prog+'%"></i></div>'+
+    '<div class="k reveal" style="margin-bottom:14px">ПРОГРЕСС К СЛЕДУЮЩЕМУ РАНГУ</div>'+
+    '<div class="trophy-grid" id="tGrid"></div>';
+  const tg=$('#tGrid');
+  ITEMS.forEach(item=>{
+    const owned=S.owned.includes(item.id);
+    const c=el('div','trophy reveal'+(owned?'':' locked'));
+    c.innerHTML='<span class="ico">'+item.ico+'</span>'+
+      '<h4>'+item.name+'</h4><span class="price">'+fmt(item.price)+' ₽</span>'+
+      (owned?'':'<span class="k" style="color:#555">ЗАБЛОКИРОВАНО</span>');
+    tg.appendChild(c);observeReveal(c);
+  });
+  [w.children[0],w.children[1]].forEach(o=>o&&observeReveal(o));
+}
+
+/* ══════════ сюжет и задания ══════════ */
+const SCENES=[
+  {id:'door',rep:0,plays:0,title:'ДВЕРЬ В ЗАЛ',summary:'Первый вечер и разговор с человеком у входа.',lines:[
+    {who:'ГРОМ',role:'ОХРАННИК',ico:'🧱',text:'Стой. Сюда приходят либо с деньгами, либо с причиной. Что у тебя?'},
+    {who:'ТЫ',role:'НОВИЧОК',ico:'👤',text:'Пять тысяч. И желание больше никогда не считать мелочь.'},
+    {who:'ГРОМ',role:'ОХРАННИК',ico:'🧱',text:'Желание здесь стоит дёшево. Решения — дороже. Проходи, но запомни: зал всегда берёт своё.'}],choices:[
+      {text:'«Я пришёл играть осторожно.»',flag:'careful',rep:5,note:'Гром запомнил твою выдержку.'},
+      {text:'«Через месяц этот зал будет знать моё имя.»',flag:'bold',rep:10,note:'Гром усмехнулся, но запомнил тебя.'}]},
+  {id:'first_debt',rep:18,plays:4,title:'ЧУЖОЙ ДОЛГ',summary:'Незнакомец просит поставить за него последние деньги.',lines:[
+    {who:'ТИМУР',role:'ПОСТОЯННЫЙ ИГРОК',ico:'🧥',text:'Слушай, новичок. Мне не хватает пятисот до ставки. Один круг — и верну вдвое.'},
+    {who:'ГРОМ',role:'ОХРАННИК',ico:'🧱',text:'Не советую. Тимур возвращает долги только красивыми историями.'},
+    {who:'ТЫ',role:'НОВИЧОК',ico:'👤',text:'Иногда первое решение важнее первой победы.'}],choices:[
+      {text:'Дать Тимуру 500 ₽.',flag:'loanedTimur',cash:-500,rep:12,note:'Тимур исчез в толпе, но обещал вернуться.'},
+      {text:'Отказать и запомнить предупреждение.',flag:'refusedTimur',rep:4,note:'Гром одобрительно кивнул.'}]},
+  {id:'vera',rep:40,plays:8,title:'БАРМЕН ВЕРА',summary:'Первый союзник и первое настоящее поручение.',lines:[
+    {who:'ВЕРА',role:'БАРМЕН',ico:'🥃',text:'Ты третий вечер сидишь у дешёвых столов и всё ещё не ушёл. Это уже характер.'},
+    {who:'ТЫ',role:'ИГРОК',ico:'👤',text:'Или плохое понимание намёков.'},
+    {who:'ВЕРА',role:'БАРМЕН',ico:'🥃',text:'У меня пропала кассета с записями камер. Можешь купить новую систему или сделать вид, что ничего не слышал.'}],choices:[
+      {text:'Помочь Вере: заплатить 1 000 ₽.',flag:'helpedVera',cash:-1000,rep:20,note:'Вера теперь на твоей стороне.'},
+      {text:'Отказаться и сохранить деньги.',flag:'refusedVera',rep:3,note:'Вера кивнула, но стала говорить холоднее.'}]},
+  {id:'back_room',rep:70,plays:14,title:'ЗАДНЯЯ КОМНАТА',summary:'Вера показывает место, о котором не знают обычные гости.',lines:[
+    {who:'ВЕРА',role:'БАРМЕН',ico:'🥃',text:'За холодильником есть дверь. Туда пускают тех, кто умеет молчать.'},
+    {who:'ТЫ',role:'ИГРОК',ico:'👤',text:'А что там?'},
+    {who:'ВЕРА',role:'БАРМЕН',ico:'🥃',text:'Стол без вывески и люди без имён. Но сначала реши: тебе нужны связи или быстрые деньги?'}],choices:[
+      {text:'Выбрать связи и войти без ставки.',flag:'choseConnections',rep:18,note:'Ты познакомился с людьми из закрытого круга.'},
+      {text:'Сыграть на 2 000 ₽ ради уважения.',flag:'backRoomBet',cash:-2000,rep:28,note:'Закрытый стол признал твою смелость.'}]},
+  {id:'max',rep:100,plays:20,title:'СЧЕТОВОД',summary:'Макс предлагает превратить удачу в систему.',lines:[
+    {who:'МАКС',role:'СЧЕТОВОД',ico:'🧮',text:'Я смотрел твою статистику. Ты выигрываешь не чаще остальных — просто вовремя уходишь.'},
+    {who:'ТЫ',role:'ИГРОК',ico:'👤',text:'Это комплимент или счёт?'},
+    {who:'МАКС',role:'СЧЕТОВОД',ico:'🧮',text:'Предложение. Я веду цифры, ты принимаешь решения. Первый отчёт — бесплатно.'}],choices:[
+      {text:'Принять Макса в команду.',flag:'hiredMax',rep:15,note:'Макс начал вести твои дела.'},
+      {text:'Работать в одиночку.',flag:'solo',cash:1500,rep:5,note:'Ты продал Максу сведения и остался один.'}]},
+  {id:'owner',rep:200,plays:35,title:'ХОЗЯИН СТОЛОВ',summary:'Владелец казино впервые вызывает тебя наверх.',lines:[
+    {who:'АРКАДИЙ',role:'ВЛАДЕЛЕЦ ЗАЛА',ico:'🎩',text:'Люди начали повторять твои ставки. Это мешает моему бизнесу — и одновременно помогает ему.'},
+    {who:'ТЫ',role:'КАПИТАН',ico:'👤',text:'Значит, мы можем договориться.'},
+    {who:'АРКАДИЙ',role:'ВЛАДЕЛЕЦ ЗАЛА',ico:'🎩',text:'Докажи, что умеешь не только брать. Вложись в зал — или устрой публичную игру против моего человека.'}],choices:[
+      {text:'Вложить 5 000 ₽ в ремонт зала.',flag:'investedHall',cash:-5000,rep:45,note:'Аркадий увидел в тебе партнёра.'},
+      {text:'Принять публичный вызов.',flag:'publicChallenge',rep:25,note:'По залу пошёл слух о грядущей игре.'}]},
+  {id:'tournament',rep:280,plays:45,title:'НОЧНОЙ ТУРНИР',summary:'Публичный вечер превращается в проверку лидерства.',lines:[
+    {who:'АРКАДИЙ',role:'ВЛАДЕЛЕЦ ЗАЛА',ico:'🎩',text:'Сегодня весь район смотрит на главный стол. Мне нужен человек, который откроет игру.'},
+    {who:'МАКС',role:'СЧЕТОВОД',ico:'🧮',text:'По цифрам выгоднее отказаться. По репутации — наоборот.'},
+    {who:'ТЫ',role:'КАПИТАН',ico:'👤',text:'Если выходить к людям, то не ради безопасных цифр.'}],choices:[
+      {text:'Оплатить призовой фонд: 8 000 ₽.',flag:'fundedTournament',cash:-8000,rep:55,note:'Турнир прошёл под твоим именем.'},
+      {text:'Стать ведущим без вложений.',flag:'hostedTournament',rep:25,note:'Публика впервые услышала твою речь.'}]},
+  {id:'district',rep:350,plays:55,title:'ЦЕНА КВАРТАЛА',summary:'Район просит выбрать между выгодой и доверием.',lines:[
+    {who:'ГРОМ',role:'НАЧАЛЬНИК ОХРАНЫ',ico:'🧱',text:'Снаружи ждут владельцы трёх маленьких точек. Аркадий хочет их закрыть.'},
+    {who:'ВЕРА',role:'СОЮЗНИК',ico:'🥃',text:'Если защитим их — потеряем быструю прибыль, но район это запомнит.'},
+    {who:'ТЫ',role:'ХОЗЯИН КВАРТАЛА',ico:'👤',text:'Сегодня решается, кем нас будут считать завтра.'}],choices:[
+      {text:'Защитить малые точки.',flag:'protectedDistrict',cash:-7500,rep:80,note:'Район признал тебя своим.'},
+      {text:'Заключить сделку с Аркадием.',flag:'dealWithOwner',cash:10000,rep:20,note:'Касса выросла, доверие района — нет.'}]},
+  {id:'betrayal',rep:550,plays:80,title:'ТРЕЩИНА',summary:'В команде появляется предатель.',lines:[
+    {who:'МАКС',role:'СЧЕТОВОД',ico:'🧮',text:'Кто-то сливает наши цифры. Утечки совпадают с ночными сменами Грома.'},
+    {who:'ГРОМ',role:'НАЧАЛЬНИК ОХРАНЫ',ico:'🧱',text:'Цифры можно подделать. Верность — нет. Спроси Веру, кто вчера встречался с Аркадием.'},
+    {who:'ТЫ',role:'БОСС',ico:'👤',text:'Одно неверное решение — и команда развалится.'}],choices:[
+      {text:'Довериться Максу и отстранить Грома.',flag:'trustedMax',rep:35,note:'Гром ушёл молча. Макс получил полный доступ.'},
+      {text:'Довериться Грому и проверить счета.',flag:'trustedGrom',rep:35,note:'Макс отдал ключи от кабинета. Проверка началась.'},
+      {text:'Не выбирать сторону, нанять аудит.',flag:'audit',cash:-15000,rep:60,note:'Независимая проверка займёт время, зато команда сохранена.'}]},
+  {id:'evidence',rep:680,plays:95,title:'КОНВЕРТ С ДОКАЗАТЕЛЬСТВАМИ',summary:'Результаты проверки меняют представление о предательстве.',lines:[
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:'Конверт лежал под дверью. Внутри переводы, даты и фотография Аркадия с человеком из нашей команды.'},
+    {who:'МАКС',role:'СЧЕТОВОД',ico:'🧮',text:'Можно обнародовать всё сейчас. Или оставить доказательства как рычаг.'},
+    {who:'ТЫ',role:'БОСС',ico:'👤',text:'Правда ценна только тогда, когда понимаешь, кому и когда её показать.'}],choices:[
+      {text:'Опубликовать доказательства.',flag:'publishedEvidence',rep:70,note:'Город заговорил о старых сделках Аркадия.'},
+      {text:'Сохранить конверт для переговоров.',flag:'keptEvidence',cash:12000,rep:30,note:'За молчание заплатили, но конверт остался у тебя.'}]},
+  {id:'city',rep:800,plays:110,title:'ГОРОД НЕ СПИТ',summary:'Финальное предложение Аркадия.',lines:[
+    {who:'АРКАДИЙ',role:'БЫВШИЙ ХОЗЯИН',ico:'🎩',text:'Ты вырос быстрее, чем я ожидал. Купи мою долю — или я продам её людям, которые не разговаривают.'},
+    {who:'ВЕРА',role:'ПРАВАЯ РУКА',ico:'🥃',text:'Это может быть ловушка. Но второй возможности не будет.'},
+    {who:'ТЫ',role:'ГЛАВА ИМПЕРИИ',ico:'👤',text:'Значит, пора поставить не деньги. Имя.'}],choices:[
+      {text:'Выкупить долю за 50 000 ₽.',flag:'boughtHall',cash:-50000,rep:150,note:'Главный зал официально стал твоим.'},
+      {text:'Отказаться и открыть собственный зал.',flag:'ownHall',rep:100,note:'Ты выбрал независимость и начал новую стройку.'}]},
+  {id:'finale',rep:1100,plays:150,title:'ВЕРХНИЙ ЭТАЖ',summary:'Развязка первой большой истории.',lines:[
+    {who:'ГРОМ',role:'СТАРЫЙ ЗНАКОМЫЙ',ico:'🧱',text:'Помнишь, что я спросил у двери? Деньги или причина.'},
+    {who:'ТЫ',role:'ХОЗЯИН ГОРОДА',ico:'👤',text:'Теперь у меня есть и то, и другое.'},
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:'Внизу уже очередь. Все хотят узнать, что будет дальше.'},
+    {who:'ТЫ',role:'ЛЕГЕНДА',ico:'👤',text:'Открывайте двери. История только начинается.'}],choices:[
+      {text:'Открыть двери нового зала.',flag:'finishedFirstArc',cash:100000,rep:200,note:'Первая сюжетная арка пройдена. Получено 100 000 ₽.'}]},
+  {id:'capital',rep:1300,plays:175,title:'ГОСТИ ИЗ СТОЛИЦЫ',summary:'Новый зал привлекает людей, привыкших покупать целые города.',lines:[
+    {who:'ЕЛЕНА ВОЛКОВА',role:'ИНВЕСТОР',ico:'💼',text:'Ваш район — интересный актив. Я предлагаю деньги, технологии и новое имя для зала.'},
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:'Новое имя означает, что старое сотрут вместе с нашей историей.'},
+    {who:'ТЫ',role:'ВЛАДЕЛЕЦ ЗАЛА',ico:'👤',text:'Инвестиции полезны, пока инвестор не начинает считать тебя своей покупкой.'}],choices:[
+      {text:'Принять ограниченные инвестиции.',flag:'capitalDeal',cash:40000,rep:35,note:'Столичный капитал вошёл в зал на твоих условиях.'},
+      {text:'Отказаться и сохранить независимость.',flag:'capitalRefused',rep:80,note:'Отказ обсуждает весь город.'}]},
+  {id:'network',rep:1500,plays:205,title:'СЕТЬ',summary:'Появляется возможность открыть второй зал.',lines:[
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:'Второй зал удвоит оборот. И утроит количество проблем.'},
+    {who:'ГРОМ',role:'БЕЗОПАСНОСТЬ',ico:'🧱',text:'Я знаю район у вокзала. Там уважают силу, но проверяют её каждый день.'},
+    {who:'ТЫ',role:'ВЛАДЕЛЕЦ СЕТИ',ico:'👤',text:'Один зал — место. Два зала — уже система.'}],choices:[
+      {text:'Вложить 75 000 ₽ во второй зал.',flag:'secondHall',cash:-75000,rep:120,note:'На карте города появилась вторая точка.'},
+      {text:'Сначала укрепить главный зал.',flag:'fortifiedHall',rep:55,note:'Команда сосредоточилась на качестве и безопасности.'}]},
+  {id:'blackout',rep:1800,plays:235,title:'НОЧЬ БЕЗ СВЕТА',summary:'Отключение электричества становится атакой на всю сеть.',lines:[
+    {who:'ГРОМ',role:'БЕЗОПАСНОСТЬ',ico:'🧱',text:'Свет погас одновременно в двух кварталах. Это не авария.'},
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:'В кассе всё на месте. Они пришли не за деньгами — хотели показать, что могут войти.'},
+    {who:'ТЫ',role:'ГЛАВА СЕТИ',ico:'👤',text:'Тогда утром город увидит, что мы всё ещё стоим.'}],choices:[
+      {text:'Потратить 100 000 ₽ на защиту сети.',flag:'securedNetwork',cash:-100000,rep:160,note:'Залы получили автономное питание и новую охрану.'},
+      {text:'Устроить публичное расследование.',flag:'publicInvestigation',rep:90,note:'Ты вынес конфликт на улицы и заставил противника нервничать.'}]},
+  {id:'legacy',rep:2200,plays:275,title:'НАСЛЕДИЕ БЕТОНА',summary:'Команда решает, чем станет построенная империя.',lines:[
+    {who:'ВЕРА',role:'СООСНОВАТЕЛЬ',ico:'🥃',text:'Мы начинали у стойки с пустой кассой. Теперь люди приезжают сюда из других городов.'},
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:'Можно продать сеть и уйти легендами. Или строить дальше, пока карта не закончится.'},
+    {who:'ТЫ',role:'ОСНОВАТЕЛЬ',ico:'👤',text:'Наследие — не то, что ты забираешь. Это то, что продолжает работать без тебя.'}],choices:[
+      {text:'Оставить сеть команде и основать фонд.',flag:'goodLegacy',cash:-150000,rep:300,note:'История завершилась созданием городского фонда.'},
+      {text:'Продолжить бесконечное расширение.',flag:'endlessEmpire',cash:250000,rep:180,note:'Империя вышла за границы города. Получено 250 000 ₽.'}]},
+  {id:'morning_after',rep:2500,plays:310,title:'УТРО ПОСЛЕ',summary:'Город проснулся с твоим именем в заголовках. Команда ждёт, что будет дальше.',lines:[
+    {who:'ВЕРА',role:'СООСНОВАТЕЛЬ',ico:'🥃',text:()=>S.storyFlags.goodLegacy?'Фонд открыл первую дверь ещё до рассвета. Люди уже несут списки домов, которым нужна помощь.':'Газеты называют тебя хозяином половины района. Вопрос только в том, что ты собираешься делать со второй половиной.'},
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:'У нас впервые есть запас, который не нужно немедленно ставить на кон. Предлагаю решить, куда он пойдёт.'},
+    {who:'ГРОМ',role:'НАЧАЛЬНИК ОХРАНЫ',ico:'🧱',text:'У центральной станции каждую ночь спят люди, которым некуда идти. Можно вложиться. Или оставить резерв на плохой день.'},
+    {who:'ТЫ',role:'ОСНОВАТЕЛЬ',ico:'👤',text:'Если мы построили что-то настоящее, оно должно работать не только на нас.'}],choices:[
+      {text:'Вложить 80 000 ₽ в городской фонд.',flag:'reinvestedCity',cash:-80000,rep:85,note:'Первые городские проекты получили финансирование от твоей команды.'},
+      {text:'Оставить 30 000 ₽ в резерве команды.',flag:'keptReserve',cash:30000,rep:20,note:'Команда получила запас на случай следующего кризиса.'}]},
+  {id:'ledger',rep:2800,plays:350,title:'ВТОРАЯ КНИГА',summary:'Макс находит две версии одной и той же бухгалтерии.',lines:[
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:'Одна книга показывает прибыль. Вторая — выплаты людям, которых нет в штатном списке.'},
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:'Если это увидят конкуренты, они назовут нас такими же, как Аркадий. Если спрячем — будем знать, что это правда.'},
+    {who:'ГРОМ',role:'БЕЗОПАСНОСТЬ',ico:'🧱',text:'Я проверил подписи. Это не ошибка и не старая смена. Кто-то до сих пор использует наши печати.'},
+    {who:'ТЫ',role:'БОСС',ico:'👤',text:'Сначала выясним, кто держит вторую книгу. Потом решим, что делать с правдой.'}],choices:[
+      {text:'Передать документы независимому аудитору.',flag:'publishedLedger',rep:90,note:'Проверка началась публично; скрывать цифры больше нельзя.'},
+      {text:'Использовать книгу для тихих переговоров.',flag:'quietLedger',cash:65000,rep:25,note:'Документы стали рычагом, но команда запомнила цену молчания.'}]},
+  {id:'shelter',rep:3200,plays:405,title:'ПОСЛЕДНЯЯ СМЕНА',summary:'Вера просит сохранить место, которое помогало району до появления казино.',lines:[
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:'Станционный приют закрывают через неделю. Там работала моя мать. Теперь там ночуют люди из нашего квартала.'},
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:'Ремонт и команда обойдутся дорого. Помещение можно сдать под клуб и вернуть деньги за сезон.'},
+    {who:'ГРОМ',role:'НАЧАЛЬНИК ОХРАНЫ',ico:'🧱',text:'Вчера там оставили коробку с нашими старыми жетонами. Кто-то помнит, откуда всё началось.'},
+    {who:'ТЫ',role:'ОСНОВАТЕЛЬ',ico:'👤',text:'У нас есть выбор между доходом и дверью, которую нельзя закрывать.'}],choices:[
+      {text:'Восстановить приют за 125 000 ₽.',flag:'rebuiltShelter',cash:-125000,rep:145,note:'Вера открыла приют заново и повесила на двери табличку с названием команды.'},
+      {text:'Сдать помещение под ночной клуб.',flag:'openedShelterClub',cash:80000,rep:25,note:'Клуб начал приносить доход, но Вера ушла со встречи молча.'}]},
+  {id:'walkout',rep:3600,plays:465,title:'ПУСТЫЕ СТОЛЫ',summary:'Команда не выходит на смену: люди считают, что им достаются только риски.',lines:[
+    {who:'ГРОМ',role:'НАЧАЛЬНИК ОХРАНЫ',ico:'🧱',text:'У главного входа никого. Охрана и крупье хотят долю, а не очередное обещание.'},
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:'Если поднять выплаты сейчас, расширение отложится. Если заменить команду, касса выдержит, но доверие — нет.'},
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:'Я могу вернуть их за стол. Но только если ты скажешь это сам.'},
+    {who:'ТЫ',role:'БОСС',ico:'👤',text:'Империя без людей — просто адрес и вывеска.'}],choices:[
+      {text:'Разделить 70 000 ₽ прибыли с командой.',flag:'fairShare',cash:-70000,rep:125,note:'Смена вернулась. Вера согласилась остаться партнёром.'},
+      {text:'Нанять новую команду и оставить долю себе.',flag:'cutShare',cash:90000,rep:20,note:'Столы открылись снова, но старые сотрудники не вернулись.'}]},
+  {id:'crossroads',rep:4000,plays:535,title:'ДВА ВХОДА',summary:'Инвестор предлагает купить половину сети. У вокзала тем временем ждёт пустое здание.',lines:[
+    {who:'ЕЛЕНА ВОЛКОВА',role:'ИНВЕСТОР',ico:'💼',text:'Я могу закрыть все ваши долги и открыть ещё три зала. За половину голосов в совете.'},
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:'Вторая площадка у вокзала дешевле. Медленнее, зато решение останется здесь.'},
+    {who:'ГРОМ',role:'БЕЗОПАСНОСТЬ',ico:'🧱',text:'Район уже видел, как чужие деньги меняют хозяина. Решай, кто будет держать ключи.'},
+    {who:'ТЫ',role:'ОСНОВАТЕЛЬ',ico:'👤',text:'Рост сам по себе ничего не значит. Важно, кто останется у двери.'}],choices:[
+      {text:'Открыть независимый зал у вокзала за 240 000 ₽.',flag:'secondHall',cash:-240000,rep:170,note:'Новая площадка открылась без внешних владельцев.'},
+      {text:'Продать часть сети и закрыть старые обязательства.',flag:'soldNetwork',cash:350000,rep:45,note:'Касса выросла, а решения теперь придётся делить с инвестором.'}]},
+  {id:'epilogue',rep:4400,plays:600,title:'ПОСЛЕДНИЙ ПРОТОКОЛ',summary:'Макс приносит чистую книгу. На последней странице — пустая строка для твоего решения.',lines:[
+    {who:'МАКС',role:'УПРАВЛЯЮЩИЙ',ico:'🧮',text:()=>S.storyFlags.publishedLedger?'Аудит закрыт. Первый раз за всю историю цифры совпали с тем, что мы говорили людям.':'Книги сведены. Можно оставить сеть семье или продать её, пока цена не упала.'},
+    {who:'ВЕРА',role:'ПАРТНЁР',ico:'🥃',text:()=>S.storyFlags.rebuiltShelter?'Приют пережил зиму. Там уже помогают тем, кто раньше стоял у нашей двери.':'Я всё ещё думаю о людях, которым мы обещали помощь. Даже если ты выбрал другой путь, обещание никуда не исчезло.'},
+    {who:'ГРОМ',role:'СТАРЫЙ ЗНАКОМЫЙ',ico:'🧱',text:()=>S.storyFlags.fairShare?'Команда сама поставила твоё имя на двери. Не потому, что ты владелец. Потому, что ты разделил риск.':'На входе тихо. Я впервые за много лет не знаю, кто придёт следующим — и это хорошее чувство.'},
+    {who:'ТЫ',role:'ОСНОВАТЕЛЬ',ico:'👤',text:'В начале у меня было пять тысяч и желание выбраться. Теперь вопрос не в том, сколько можно забрать.'}],choices:[
+      {text:'Оставить часть сети команде и вложить 300 000 ₽ в фонд.',flag:'communityLegacy',cash:-300000,rep:260,note:'Команда получила долю, а фонд — постоянное финансирование.'},
+      {text:'Сохранить контроль и направить 250 000 ₽ на расширение.',flag:'privateLegacy',cash:250000,rep:100,note:'Сеть продолжит расти под твоим именем.'}]}
+];
+const CHAPTERS=[
+  {rep:0,name:'ГЛАВА I · ПУСТЫЕ КАРМАНЫ',text:'Ты входишь в зал с пятью тысячами и одним упрямым планом: подняться с бетонного пола до верхнего этажа.'},
+  {rep:100,name:'ГЛАВА II · СВОИ ЛЮДИ',text:'Бармен уже знает твоё имя. Выполняй поручения зала и собери первые символы влияния.'},
+  {rep:300,name:'ГЛАВА III · ИГРА ПО-КРУПНОМУ',text:'На тебя смотрят владельцы столов. Большие ставки открывают двери, но каждая ошибка теперь заметна.'},
+  {rep:600,name:'ГЛАВА IV · ХОЗЯИН КВАРТАЛА',text:'У тебя появляется команда и недвижимость. Город предлагает сделку: репутация в обмен на риск.'},
+  {rep:900,name:'ГЛАВА V · БЕТОННАЯ ИМПЕРИЯ',text:'Зал стал твоим штабом. Осталось собрать легендарные трофеи и доказать, что вершина действительно твоя.'},
+  {rep:1200,name:'ГЛАВА VI · НОВЫЕ ДВЕРИ',text:'Первый путь завершён, но открытие нового зала привлекает игроков гораздо крупнее прежних.'},
+  {rep:1450,name:'ГЛАВА VII · СТОЛИЧНЫЙ КАПИТАЛ',text:'Большие деньги предлагают быстрый рост в обмен на часть твоей независимости.'},
+  {rep:1700,name:'ГЛАВА VIII · СЕТЬ',text:'Теперь под твоим знаком работает несколько точек, и каждое решение отражается на всей системе.'},
+  {rep:2050,name:'ГЛАВА IX · НОЧЬ БЕЗ СВЕТА',text:'Империя проходит проверку атакой, которую нельзя выиграть одной удачной ставкой.'},
+  {rep:2400,name:'ГЛАВА X · НАСЛЕДИЕ',text:'Последний выбор определит, что останется после тебя: деньги, бесконечная сеть или город, которому ты помог.'},
+  {rep:2700,name:'ГЛАВА XI · УТРО ПОСЛЕ',text:'После громкого финала начинаются тихие решения. Город ждёт, что станет с обещаниями.'},
+  {rep:3200,name:'ГЛАВА XII · ВТОРАЯ КНИГА',text:'В старой бухгалтерии нашлись цифры, которых не должно было существовать.'},
+  {rep:3600,name:'ГЛАВА XIII · ПУСТЫЕ СТОЛЫ',text:'Команда проверяет, умеешь ли ты делить не только победы, но и ответственность.'},
+  {rep:4100,name:'ГЛАВА XIV · ДВА ВХОДА',text:'Сеть может стать больше. Но цена роста теперь измеряется не только деньгами.'},
+  {rep:4500,name:'ГЛАВА XV · ПОСЛЕДНИЙ ПРОТОКОЛ',text:'На последней странице чистой книги осталось место для ответа: что будет работать после тебя?'}
+];
+const QUESTS=[
+  {id:'first5',name:'РАЗОГРЕВ',desc:'Сыграй 5 партий в любых режимах.',reward:3000,get:()=>S.stats.plays,target:5},
+  {id:'wins3',name:'СЕРИЯ',desc:'Одержи 3 победы.',reward:5000,get:()=>S.stats.wins,target:3},
+  {id:'wager25',name:'ОБОРОТ',desc:'Поставь суммарно 25 000 ₽.',reward:7500,get:()=>S.stats.wagered,target:25000},
+  {id:'collector',name:'КОЛЛЕКЦИОНЕР',desc:'Купи 3 предмета в магазине.',reward:10000,get:()=>S.stats.purchases,target:3},
+  {id:'bigwin',name:'КРУПНЫЙ КУШ',desc:'Получи одну выплату от 15 000 ₽.',reward:15000,get:()=>S.stats.biggest,target:15000},
+  {id:'veteran',name:'ВЕТЕРАН ЗАЛА',desc:'Сыграй 50 партий.',reward:50000,get:()=>S.stats.plays,target:50}
+];
+function currentChapter(){let chapter=CHAPTERS[0];CHAPTERS.forEach(c=>{if(S.reputation>=c.rep)chapter=c;});return chapter;}
+function sceneUnlocked(scene){return S.reputation>=scene.rep&&S.stats.plays>=scene.plays;}
+function nextStoryScene(){return SCENES.find(s=>sceneUnlocked(s)&&!S.storySeen.includes(s.id));}
+let storyOpenScheduled=false;
+function maybeOpenStory(){if(storyOpenScheduled||$('#dialogOverlay').classList.contains('on'))return;const scene=nextStoryScene();if(!scene)return;storyOpenScheduled=true;
+  setTimeout(()=>{storyOpenScheduled=false;if(!$('#dialogOverlay').classList.contains('on'))openDialogue(scene);},350);}
+function applyStoryChoice(scene,choice){
+  if(S.storySeen.includes(scene.id))return;
+  S.storySeen.push(scene.id);S.storyFlags[choice.flag]=true;S.reputation+=choice.rep||0;save();
+  if(choice.cash)changeBalance(choice.cash,choice.cash>0?'winBig':'lose');
+  toast(choice.note);renderStory();renderStoryArchive();renderLobby();updateStoryCnt();setTimeout(maybeOpenStory,450);
+}
+function openDialogue(scene,replay=false){let index=0;const overlay=$('#dialogOverlay'),next=$('#dialogNext'),close=$('#dialogClose'),choices=$('#dialogChoices'),controls=$('#dialogControls');overlay.classList.add('on');
+  function closeDialog(){overlay.classList.remove('on');}
+  function showLine(){const line=scene.lines[index];$('#dialogSpeaker').textContent=line.who;$('#dialogRole').textContent=scene.title+' · '+line.role;$('#dialogPortrait').textContent=line.ico;$('#dialogText').textContent=typeof line.text==='function'?line.text():line.text;choices.innerHTML='';controls.style.display='flex';next.style.display='inline-flex';next.querySelector('span').textContent=index===scene.lines.length-1?(replay?'ЗАКРЫТЬ':'РЕШЕНИЕ →'):'ДАЛЬШЕ →';}
+  function showChoices(){controls.style.display='none';choices.innerHTML='';scene.choices.forEach(choice=>{const b=btn(choice.text,'btn '+((choice.cash||0)<0?'ghost':'green'));const cannotPay=!replay&&(choice.cash||0)<0&&S.balance<Math.abs(choice.cash);if(cannotPay){b.disabled=true;b.title='Не хватает денег для этого решения';}
+      b.onclick=()=>{if(!replay)applyStoryChoice(scene,choice);closeDialog();};choices.appendChild(b);});if(replay){const b=btn('ЗАКРЫТЬ','btn ghost');b.onclick=closeDialog;choices.appendChild(b);}}
+  next.onclick=()=>{if(index<scene.lines.length-1){index++;showLine();Snd.click();}else if(replay)closeDialog();else showChoices();};close.onclick=closeDialog;showLine();
+}
+function storyEffectsHTML(){const effects=[];
+  if(S.storyFlags.careful)effects.push(['Аварийный резерв восстанавливается за 9 минут.','good']);
+  if(S.storyFlags.bold)effects.push(['Пары в слотах получают ещё +0,05×.','good']);
+  if(S.storyFlags.refusedVera&&S.reputation<180)effects.push(['«Орёл и решка» закрыт до 180 репутации.','bad']);
+  if(S.storyFlags.hiredMax)effects.push(['Зелёный ноль рулетки получает +0,25×.','good']);
+  if(S.storyFlags.investedHall)effects.push(['Награды заданий увеличены на 5%.','good']);
+  if(S.storyFlags.publicChallenge)effects.push(['Семёрка в костях оплачивается 5,5×.','good']);
+  if(S.storyFlags.protectedDistrict)effects.push(['Множитель мин увеличен на 2%.','good']);
+  if(S.storyFlags.dealWithOwner&&S.reputation<700)effects.push(['«Выше / ниже» закрыто до 700 репутации.','bad']);
+  if(S.storyFlags.trustedMax)effects.push(['Макс даёт скидку 8% на весь магазин.','good']);
+  if(S.storyFlags.trustedGrom)effects.push(['Шанс мгновенного краша снижен до 3%.','good']);
+  if(S.storyFlags.capitalDeal)effects.push(['Инвестор удерживает долю: обычные ставки рулетки платят 1,9×.','bad']);
+  if(S.storyFlags.choseConnections)effects.push(['Знакомства повышают выплату «Напёрстков» до 2,75×.','good']);
+  if(S.owned.includes('counting_ledger'))effects.push(['Книга вероятностей повышает отдачу в «Выше / ниже» до 98%.','good']);
+  if(S.owned.includes('cup_magnet'))effects.push(['Магнит «Красный шар» повышает выплату напёрстков до 2,85×.','good']);
+  if(S.owned.includes('calibrated_dice'))effects.push(['Калиброванные кубики повышают выплату за пару до 2,75×.','good']);
+  if(S.owned.includes('poker_atlas'))effects.push(['Атлас покерных рук повышает пару валетов и выше до 2,2×.','good']);
+  if(S.owned.includes('profit_share'))effects.push(['Доля команды повышает награды заданий на 5%.','good']);
+  if(S.owned.includes('infrastructure'))effects.push(['Инфраструктурный фонд снижает цены магазина ещё на 3%.','good']);
+  if(S.storyFlags.rebuiltShelter)effects.push(['Станционный приют восстановлен за счёт команды.','good']);
+  if(S.storyFlags.publishedLedger)effects.push(['Независимый аудит опубликован для города.','good']);
+  if(S.storyFlags.fairShare)effects.push(['Команда получает долю от прибыли сети.','good']);
+  return effects.length?'<div class="effect-list"><span class="k">АКТИВНЫЕ ПОСЛЕДСТВИЯ</span>'+effects.map(e=>'<div class="effect-row '+(e[1]==='bad'?'bad':'')+'">'+e[0]+'</div>').join('')+'</div>':'';
+}
+function renderStory(){const p=$('#storyPanel');if(!p)return;const c=currentChapter(),idx=CHAPTERS.indexOf(c),next=CHAPTERS[idx+1];const progress=next?Math.min(100,(S.reputation-c.rep)/(next.rep-c.rep)*100):100;
+  const available=nextStoryScene(),upcoming=SCENES.find(s=>!S.storySeen.includes(s.id));
+  p.innerHTML='<div class="story-top"><div><span class="k">ТВОЯ ИСТОРИЯ</span><div class="chapter-name">'+c.name+'</div><p class="story-text">'+c.text+'</p></div><div class="rep"><span class="k">РЕПУТАЦИЯ</span><b>'+fmt(S.reputation)+'</b>'+(next?'<small>до главы: '+fmt(Math.max(0,next.rep-S.reputation))+'</small>':'<small>МАКСИМУМ</small>')+'</div></div><div class="repbar"><i style="width:'+progress+'%"></i></div><div class="story-actions">'+(available?'<button class="btn green" id="continueStory"><span>▶ '+available.title+'</span></button>':upcoming?'<button class="btn ghost" disabled><span>НУЖНО: '+fmt(upcoming.rep)+' РЕП. И '+upcoming.plays+' ИГР</span></button>':'<button class="btn ghost" disabled><span>ОСНОВНОЙ СЮЖЕТ ЗАВЕРШЁН</span></button>')+'<button class="btn ghost" id="openArchive"><span>АРХИВ ДИАЛОГОВ</span></button></div>'+storyEffectsHTML();
+  if(available)$('#continueStory').onclick=()=>openDialogue(available);$('#openArchive').onclick=()=>showView('story');updateStoryCnt();
+}
+function renderStoryArchive(){const grid=$('#episodeGrid');if(!grid)return;grid.innerHTML='';SCENES.forEach((scene,i)=>{const unlocked=sceneUnlocked(scene),seen=S.storySeen.includes(scene.id),card=el('div','episode reveal'+(unlocked?'':' locked'));
+    card.innerHTML='<span class="eno">ЭПИЗОД '+String(i+1).padStart(2,'0')+' · '+scene.rep+' РЕП. · '+scene.plays+' ИГР</span><h3>'+(unlocked?scene.title:'ЗАСЕКРЕЧЕНО')+'</h3><p>'+(unlocked?scene.summary:'Нужно одновременно набрать '+fmt(scene.rep)+' репутации и сыграть '+scene.plays+' партий.')+'</p>';
+    if(unlocked){const b=btn(seen?'ПОВТОРИТЬ ДИАЛОГ':'НАЧАТЬ ЭПИЗОД',seen?'btn ghost sm':'btn green sm');b.onclick=()=>openDialogue(scene,seen);card.appendChild(b);}grid.appendChild(card);observeReveal(card);});updateStoryCnt();}
+function updateStoryCnt(){const n=$('#storyCnt');if(n)n.textContent=S.storySeen.length+'/'+SCENES.length;}
+function renderQuests(){const grid=$('#questGrid');if(!grid)return;grid.innerHTML='';QUESTS.forEach(q=>{const value=Number(money(q.get())>BigInt(q.target)?q.target:q.get()),done=value>=q.target,claimed=S.claimed.includes(q.id),reward=Math.round(q.reward*(S.storyFlags.investedHall?1.05:1)*(hasSkill('profit_share')?1.05:1));const card=el('div','quest reveal'+(done?' done':'')+(claimed?' claimed':''));
+    card.innerHTML='<h3>'+q.name+'</h3><p>'+q.desc+'</p><div class="qprog"><i style="width:'+(value/q.target*100)+'%"></i></div><div class="qmeta"><span>'+fmt(value)+' / '+fmt(q.target)+'</span><span>+'+fmt(reward)+' ₽</span></div>';
+    const b=btn(claimed?'ПОЛУЧЕНО':done?'ЗАБРАТЬ':'В ПРОЦЕССЕ',claimed?'btn ghost sm':done?'btn green sm':'btn ghost sm');b.disabled=!done||claimed;
+    b.onclick=()=>{if(!done||claimed)return;S.claimed.push(q.id);S.reputation+=10;save();changeBalance(reward,'winBig');toast('Задание выполнено: +'+fmt(reward)+' ₽');renderQuests();renderStory();};card.appendChild(b);grid.appendChild(card);observeReveal(card);
+  });updateQuestCnt();}
+function updateQuestCnt(){const node=$('#questCnt');if(node)node.textContent=S.claimed.length+'/'+QUESTS.length;}
+function updateProgressUI(){renderStats();renderStory();updateQuestCnt();updateStoryCnt();maybeOpenStory();}
+
+/* ══════════ навигация ══════════ */
+let currentGame=null;
+function showView(name){
+  $$('.view').forEach(v=>v.classList.remove('on'));
+  const activeView=$('#view-'+name);activeView.classList.add('on');
+  activeView.querySelectorAll('.reveal').forEach(node=>node.classList.add('in'));
+  $$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===name));
+  if(name!=='game')clearGame();
+  window.scrollTo({top:0,behavior:'smooth'});
+  Snd.click();
+}
+function buildServerGame(box,id){
+  let roundId=null,busy=false,selectedChoice='',kept=new Set(),crashTimer=null,cupTimer=null;
+  const choices={
+    roulette:[['red','КРАСНОЕ'],['black','ЧЁРНОЕ'],['green','НОЛЬ'],['even','ЧЁТ'],['odd','НЕЧЁТ'],['low','1–18'],['high','19–36']],
+    dice:[['more','БОЛЬШЕ 7'],['less','МЕНЬШЕ 7'],['seven','РОВНО 7'],['pair','ПАРА']],
+    coinflip:[['heads','ОРЁЛ'],['tails','РЕШКА']]
+  };
+  box.innerHTML='<div class="res" id="serverGameResult" aria-live="polite"></div><div id="serverGameBoard"></div><div id="serverGameChoices" class="rbets" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"></div><div id="serverGameActions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"></div><div class="k" id="serverGameHint" style="margin-top:12px">Исход раунда проверяется сервером</div>';
+  const result=$('#serverGameResult'),board=$('#serverGameBoard'),choiceWrap=$('#serverGameChoices'),actions=$('#serverGameActions'),hint=$('#serverGameHint');
+  const bet=betBar(box,()=>{});box.appendChild(bet);
+  const start=btn('НАЧАТЬ РАУНД','btn green');start.style.cssText='width:100%;margin-top:14px';box.appendChild(start);
+  const mineCount=id==='mines'?el('label','k','МИНЫ <select id="serverMineCount" class="bet-input"><option>3</option><option selected>5</option><option>8</option><option>12</option></select>'):null;
+  if(mineCount)box.insertBefore(mineCount,bet);
+  (choices[id]||[]).forEach(([value,label],index)=>{
+    const button=el('button','rbet',label);button.type='button';button.dataset.choice=value;
+    button.onclick=()=>{if(busy)return;selectedChoice=value;[...choiceWrap.children].forEach(item=>item.classList.toggle('on',item===button));};
+    choiceWrap.appendChild(button);if(index===0){selectedChoice=value;button.classList.add('on');}
+  });
+
+  function showOutcome(outcome,round){
+    roundId=null;clearInterval(crashTimer);crashTimer=null;start.disabled=false;lockBetBar(bet,false);lockButtons(choiceWrap,false);actions.innerHTML='';
+    const won=money(outcome?.won||0);
+    result.className='res on '+(won?'win':outcome?.result==='push'?'push':'lose');
+    if(round?.symbols)board.innerHTML='<div class="reels">'+round.symbols.map(symbol=>'<div class="reel"><span class="sym">'+symbol+'</span></div>').join('')+'</div>';
+    else if(round?.number!==undefined)board.textContent='Выпало '+round.number+' · '+round.color.toUpperCase();
+    else if(round?.dice)board.textContent='Кости: '+round.dice.join(' и ')+' · сумма '+round.total;
+    else if(round?.result)board.textContent=round.result==='heads'?'Выпал орёл':'Выпала решка';
+    else if(round?.player)board.innerHTML='<div class="tableside"><div class="hand"><div class="hname">ТЫ</div><div class="cards">'+round.player.map(card=>cardHTML(card)).join('')+'</div></div><div class="hand"><div class="hname">ДИЛЕР</div><div class="cards">'+round.dealer.map(card=>cardHTML(card,card===null)).join('')+'</div></div></div>';
+    else if(round?.hand)board.innerHTML='<div class="poker-hand">'+round.hand.map(card=>cardHTML(card)).join('')+'</div><p class="k">'+round.name+' · ×'+round.multiplier+'</p>';
+    else if(round?.mines)renderMineGrid(round);
+    else if(round?.opened)renderMineGrid(round);
+    else if(id==='cups'){board.querySelectorAll('[data-cup]').forEach(cup=>{cup.disabled=true;cup.classList.toggle('revealed',Number(cup.dataset.cup)===round.ball);if(Number(cup.dataset.cup)===round.ball)cup.innerHTML+='<span class="cup-ball">??</span>';});}
+    else if(round?.multiplier!==undefined)board.textContent='Раунд завершён на ×'+Number(round.multiplier).toFixed(2);
+    result.textContent=won?'Выплата подтверждена сервером: +'+fmt(won)+' ₽':outcome?.result==='push'?'Ничья. Ставка возвращена.':'Раунд завершён без выплаты.';
+    hint.textContent='Баланс и рейтинг обновлены сервером.';
+  }
+  function renderMineGrid(round){
+    board.innerHTML='<div class="mines">'+Array.from({length:25},(_,index)=>{
+      const opened=round.opened?.includes(index),mine=round.mine===index||round.mines?.includes(index);
+      return'<div class="tile '+(opened?'open safe ':'')+(mine?'mine':'')+'">'+(mine?'💣':opened?'💎':'')+'</div>';
+    }).join('')+'</div>';
+  }
+  function renderRound(round){
+    if(id==='blackjack'&&round.player){
+      board.innerHTML='<div class="tableside"><div class="hand"><div class="hname">ДИЛЕР</div><div class="cards">'+round.dealer.map(card=>cardHTML(card,card===null)).join('')+'</div></div><div class="hand"><div class="hname">ТЫ</div><div class="cards">'+round.player.map(card=>cardHTML(card)).join('')+'</div></div></div>';
+    }else if(id==='highlow'&&round.current){const names={11:'J',12:'Q',13:'K',14:'A'};board.innerHTML='<div style="text-align:center"><div class="k">ТЕКУЩАЯ КАРТА</div><div class="card" style="margin:14px auto;width:100px;height:140px;align-items:center;justify-content:center;font-size:42px">'+(names[round.current]||round.current)+'</div><b>×'+Number(round.multiplier).toFixed(2)+'</b></div>';
+    }else if(id==='cups'){board.innerHTML='<div class="cups-row">'+[0,1,2].map(cup=>'<button class="rbet cup-choice" data-cup="'+cup+'" type="button"><span class="cup-body" aria-hidden="true">🥤</span></button>').join('')+'</div>';const cups=[...board.querySelectorAll('[data-cup]')];
+      cups.forEach(cup=>{cup.setAttribute('aria-label','Выбрать стакан');cup.disabled=!roundId;cup.onclick=()=>sendAction('pick',{cup:Number(cup.dataset.cup)});});
+      if(roundId&&round.phase==='pick'){
+        cups.forEach(cup=>{cup.disabled=true;cup.classList.add('cup-shuffle');});
+        clearTimeout(cupTimer);cupTimer=setTimeout(()=>{cups.forEach(cup=>{cup.classList.remove('cup-shuffle');cup.disabled=false;});},1120);
+      }
+    }else if(id==='mines'){renderMineGrid(round);board.querySelectorAll('.tile').forEach((tile,index)=>{if(!round.opened?.includes(index))tile.onclick=()=>sendAction('open',{tile:index});});
+    }else if(id==='poker'&&round.hand){board.innerHTML='<div class="poker-hand">'+round.hand.map((card,index)=>'<button class="card poker-card '+(kept.has(index)?'held':'')+'" type="button" data-card="'+index+'"><span class="cr">'+card.r+card.s+'</span><span class="cs">'+card.s+'</span></button>').join('')+'</div>';board.querySelectorAll('[data-card]').forEach(card=>card.onclick=()=>{const index=Number(card.dataset.card);kept.has(index)?kept.delete(index):kept.add(index);card.classList.toggle('held');});
+    }else if(id==='crash'){
+      const multiplier=Number(round.multiplier||1);board.innerHTML='<div class="mult">×'+multiplier.toFixed(2)+'</div>';
+      if(multiplier>=1.10){const cash=btn('ВЫВЕСТИ','btn green');cash.onclick=()=>sendAction('cashout');actions.appendChild(cash);}
+      clearInterval(crashTimer);crashTimer=null;
+      if(round.phase==='active')crashTimer=setInterval(()=>sendAction('status'),400);
+    }
+    else if(id==='blackjack'&&round.phase==='play')board.dataset.phase='play';
+    actions.innerHTML='';
+    const actionButtons=id==='blackjack'?[['hit','ЕЩЁ'],['stand','СТОП'],...(round.player?.length===2?[['double','ДАБЛ']]:[])]:id==='highlow'?[['higher','ВЫШЕ'],['lower','НИЖЕ'],...(round.rounds>0?[['cashout','ЗАБРАТЬ']]:[])]:id==='mines'&&round.opened?.length?[['cashout','ВЫВЕСТИ']]:id==='poker'?[['draw','ОБМЕНЯТЬ']]:id==='crash'?[['cashout','ВЫВЕСТИ']]:[];
+    actionButtons.forEach(([action,label])=>{const button=btn(label,'btn sm');button.onclick=()=>sendAction(action,action==='draw'?{keep:[...kept]}:{});actions.appendChild(button);});
+    if(id==='cups'||(id==='mines'&&!round.opened?.length))hint.textContent=id==='cups'?'Выбери стакан после перемешивания.':'Открывай плитки; расположение мин знает только сервер.';
+    else hint.textContent='Раунд хранится на сервере. Переиграть один round ID нельзя.';
+  }
+  async function sendAction(action,data){
+    if(busy||!roundId)return;busy=true;lockButtons(actions,true);
+    try{const response=await actServerGame(roundId,action,data);roundId=response.round_id;renderRound(response.round);if(response.outcome)showOutcome(response.outcome,response.round);}
+    catch(error){result.className='res on lose';result.textContent=error.message;}
+    finally{busy=false;lockButtons(actions,false);}
+  }
+  start.onclick=async()=>{
+    if(busy||roundId)return;busy=true;start.disabled=true;lockBetBar(bet,true);result.className='res';result.textContent='Сервер раздаёт раунд…';
+    const options=id==='mines'?{mines:Number(box.querySelector('#serverMineCount').value)}:{};
+    try{const response=await startServerGame(id,bet.getBet(),selectedChoice,options);roundId=response.round_id;kept.clear();renderRound(response.round);if(response.outcome)showOutcome(response.outcome,response.round);else{lockBetBar(bet,true);start.disabled=true;}}
+    catch(error){result.className='res on lose';result.textContent=error.message;start.disabled=false;lockBetBar(bet,false);}
+    finally{busy=false;}
+  };
+  onCleanup(()=>{clearInterval(crashTimer);clearTimeout(cupTimer);crashTimer=null;});
+  apiRequest('/api/games/active').then(response=>{
+    if(!alive(box))return;
+    if(response.round_id&&response.game===id){roundId=response.round_id;applyServerGameResult(response);start.disabled=true;lockBetBar(bet,true);renderRound(response.round);}
+    else if(response.round_id){start.disabled=true;hint.textContent='Заверши текущий раунд в игре '+GAMES[response.game].name;}
+  }).catch(error=>{result.textContent=error.message;});
+  renderRound({phase:'idle',opened:[]});
+}
+function openGame(id){
+  if(!authReady){toast('Проверяем профиль…');return;}
+  const reason=gameLockReason(id);if(reason){Snd.lose();toast('🔒 '+reason);return;}
+  const g=GAMES[id];currentGame=id;
+  $('#gameTitle').textContent=g.name;
+  $('#gameRule').textContent=g.rule;
+  $('#gameAcc').style.background=g.ac;
+  const body=$('#gameBody');body.innerHTML='';
+  clearGame();
+  const builders={slots:buildSlots,blackjack:buildBlackjack,roulette:buildRoulette,
+    crash:buildCrash,dice:buildDice,mines:buildMines,coinflip:buildCoinflip,highlow:buildHighlow,cups:buildCups,poker:buildPoker};
+  if(authSession)buildServerGame(body,id);else builders[id](body);
+  showView('game');
+}
+
+/* ══════════ лобби ══════════ */
+function renderLobby(){
+  const grid=$('#gamesGrid');grid.innerHTML='';
+  const order=['slots','blackjack','roulette','crash','dice','mines','coinflip','highlow','cups','poker'];
+  order.forEach((id,i)=>{
+    const g=GAMES[id];
+    const c=el('button','gcard reveal '+g.span);c.type='button';c.dataset.game=id;
+    const lockReason=gameLockReason(id);if(lockReason)c.classList.add('locked');
+    c.style.setProperty('--ac',g.ac);
+    c.innerHTML='<span class="num">0'+(i+1)+'</span><h3>'+g.name+'</h3>'+
+      '<p>'+g.tag+'</p><span class="pay">ОПЛАТА '+g.pay+'</span>'+
+      '<span class="play">'+(lockReason?'🔒 '+lockReason:'ИГРАТЬ →')+'</span>';
+    c.onclick=()=>openGame(id);
+    grid.appendChild(c);observeReveal(c);
+  });
+}
+
+/* ══════════ reveal ══════════ */
+let io;
+function observeReveal(node){
+  if(!io){node.classList.add('in');return;}
+  io.observe(node);
+  // если уже в зоне — показать сразу
+  const r=node.getBoundingClientRect();
+  if(r.top<window.innerHeight*0.95)node.classList.add('in');
+}
+function initReveal(){
+  if(!('IntersectionObserver' in window)){io=null;$$('.reveal').forEach(node=>node.classList.add('in'));return;}
+  io=new IntersectionObserver(es=>{
+    es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+  },{threshold:0.08});
+  $$('.reveal').forEach(node=>io.observe(node));
+}
+
+/* ══════════ инициализация ══════════ */
+function init(){
+  save();
+  initReveal();
+  buildTicker();
+  renderLobby();
+  renderShop();
+  renderTrophies();
+  renderStats();
+  renderStory();
+  renderStoryArchive();
+  renderQuests();
+  initAccounts();
+  $('#balNum').textContent=fmt(S.balance);
+  balShown=S.balance;
+
+  // табы
+  $$('.tab').forEach(t=>t.onclick=()=>{
+    if(t.dataset.view==='game')return;
+    showView(t.dataset.view);
+    if(t.dataset.view==='shop')renderShop();
+    if(t.dataset.view==='trophies')renderTrophies();
+    if(t.dataset.view==='quests')renderQuests();
+    if(t.dataset.view==='story')renderStoryArchive();
+    if(t.dataset.view==='account')renderAccount();
+    if(t.dataset.view==='rating')loadLeaderboard();
+  });
+  $('#backBtn').onclick=()=>showView('lobby');
+
+  // аварийный резерв: только при почти пустом балансе, с проверкой и перерывом
+  $('#refill').onclick=()=>{
+    if(S.balance>500){toast('Резерв доступен только при балансе 500 ₽ или меньше');updateRefillButton();return;}
+    const wait=refillWait();if(wait>0){toast('Следующий резерв через '+Math.ceil(wait/60000)+' мин.');updateRefillButton();return;}
+    const a=irnd(4,12),b=irnd(3,9),answer=prompt('Проверка для получения резерва: сколько будет '+a+' × '+b+'?');
+    if(answer===null)return;
+    if(Number(answer.trim())!==a*b){Snd.lose();toast('Неверный ответ. Резерв не выдан.');return;}
+    S.lastRefill=Date.now();save();
+    changeBalance(5000,'win');
+    toast('💰 Контракт выполнен: резерв +5 000 ₽');
+  };
+  updateRefillButton();
+  setInterval(updateRefillButton,30000);
+
+  // звук
+  const sndBtn=$('#sndBtn');
+  sndBtn.textContent=S.sound?'🔊':'🔇';
+  sndBtn.onclick=()=>{S.sound=!S.sound;save();sndBtn.textContent=S.sound?'🔊':'🔇';if(S.sound)Snd.click();};
+
+  // сброс
+  $('#resetBtn').onclick=()=>{
+    if(confirm('Снести весь прогресс? Баланс, трофеи, статистика — всё в бетон.')){
+      S=freshState();save();
+      balShown=S.balance;$('#balNum').textContent=fmt(S.balance);
+      renderShop();renderTrophies();renderStats();updateShopCnt();
+      renderStory();renderQuests();
+      renderStoryArchive();
+      toast('Всё с нуля. Железный старт.');
+    }
+  };
+
+  // клавиатура: пробел — действие в игре
+  document.addEventListener('keydown',e=>{
+    if(e.code==='Escape'&&$('#dialogOverlay').classList.contains('on')){$('#dialogOverlay').classList.remove('on');return;}
+    if(e.code==='Space'&&currentGame){
+      e.preventDefault();
+      const body=$('#gameBody');
+      const go=body.querySelector('.btn.green,.btn.orange');
+      if(go&&!go.disabled)go.click();
+    }
+  });
+
+  // контекст аудио при первом клике
+  document.addEventListener('pointerdown',()=>{if(S.sound)Snd.ac();},{once:true});
+  if(firstStoryLaunch)toast('Новая сюжетная версия: прогресс начат с нуля.');
+  maybeOpenStory();
+}
+function showFatal(error){
+  const box=$('#fatalError');if(!box)return;
+  box.style.display='block';
+  box.textContent='Ошибка запуска: '+(error&&error.message?error.message:String(error))+' — обновите страницу после замены файла.';
+}
+window.addEventListener('error',e=>showFatal(e.error||e.message));
+window.addEventListener('unhandledrejection',e=>showFatal(e.reason||'Неизвестная ошибка'));
+try{init();}catch(error){console.error(error);showFatal(error);}
+</script>
+</body>
+</html>

@@ -1703,14 +1703,11 @@ const QUESTS=[
 function currentChapter(){let chapter=CHAPTERS[0];CHAPTERS.forEach(c=>{if(S.reputation>=c.rep)chapter=c;});return chapter;}
 function sceneUnlocked(scene){return S.reputation>=scene.rep&&S.stats.plays>=scene.plays;}
 function nextStoryScene(){return SCENES.find(s=>sceneUnlocked(s)&&!S.storySeen.includes(s.id));}
-let storyOpenScheduled=false;
-function maybeOpenStory(){if(storyOpenScheduled||$('#dialogOverlay').classList.contains('on'))return;const scene=nextStoryScene();if(!scene)return;storyOpenScheduled=true;
-  setTimeout(()=>{storyOpenScheduled=false;if(!$('#dialogOverlay').classList.contains('on'))openDialogue(scene);},350);}
 function applyStoryChoice(scene,choice){
   if(S.storySeen.includes(scene.id))return;
   S.storySeen.push(scene.id);S.storyFlags[choice.flag]=true;S.reputation+=choice.rep||0;save();
   if(choice.cash)changeBalance(choice.cash,choice.cash>0?'winBig':'lose');
-  toast(choice.note);renderStory();renderStoryArchive();renderLobby();updateStoryCnt();setTimeout(maybeOpenStory,450);
+  toast(choice.note);renderStory();renderStoryArchive();renderLobby();updateStoryCnt();
 }
 function openDialogue(scene,replay=false){let index=0;const overlay=$('#dialogOverlay'),next=$('#dialogNext'),close=$('#dialogClose'),choices=$('#dialogChoices'),controls=$('#dialogControls');overlay.classList.add('on');
   function closeDialog(){overlay.classList.remove('on');}
@@ -1765,7 +1762,7 @@ function renderQuests(){const grid=$('#questGrid');if(!grid)return;grid.innerHTM
       S.claimed.push(q.id);S.reputation+=10;save();changeBalance(reward,'winBig');toast('Задание выполнено: +'+fmt(reward)+' ₽');renderQuests();renderStory();};card.appendChild(b);grid.appendChild(card);observeReveal(card);
   });updateQuestCnt();}
 function updateQuestCnt(){const node=$('#questCnt');if(node)node.textContent=S.claimed.length+'/'+QUESTS.length;}
-function updateProgressUI(){renderStats();renderStory();updateQuestCnt();updateStoryCnt();maybeOpenStory();}
+function updateProgressUI(){renderStats();renderStory();updateQuestCnt();updateStoryCnt();}
 
 /* ══════════ навигация ══════════ */
 let currentGame=null;
@@ -2055,7 +2052,6 @@ function init(){
   document.addEventListener('pointerdown',()=>{if(S.sound)Snd.ac();},{once:true});
   if(localStateLoadError)toast('Основное сохранение повреждено или недоступно. Проверь сохранённый прогресс перед продолжением.');
   if(firstStoryLaunch)toast('Новая сюжетная версия: прогресс начат с нуля.');
-  maybeOpenStory();
 }
 function showFatal(error){
   const box=$('#fatalError');if(!box)return;
